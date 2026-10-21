@@ -13,6 +13,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import dev.ovpntv.ui.components.plainIcon
+import dev.ovpntv.ui.components.TvButton
+import dev.ovpntv.R
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -32,6 +39,11 @@ fun SettingsScreen() {
     val connectOnBoot by Settings.connectOnBoot.collectAsState()
     val blockWhileReconnecting by Settings.blockWhileReconnecting.collectAsState()
     val update by Updater.state.collectAsState()
+    var showLicenses by rememberSaveable { mutableStateOf(false) }
+    if (showLicenses) {
+        LicensesScreen(onBack = { showLicenses = false })
+        return
+    }
 
     Row(Modifier.fillMaxHeight()) {
         Column(Modifier.weight(1.3f), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
@@ -85,7 +97,7 @@ fun SettingsScreen() {
             listOf(
                 "App version" to BuildConfig.VERSION_NAME,
                 "VPN engine" to "OpenVPN® 2.7.8",
-                "TLS library" to "mbed TLS 3.6.4",
+                "TLS library" to "Mbed TLS 3.6.4",
                 "Compression" to "LZ4 1.10.0, LZO 2.10",
             ).forEach { (k, v) ->
                 Row {
@@ -98,6 +110,8 @@ fun SettingsScreen() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(Dimens.smallPadding))
+            TvButton("Open-source licences", { showLicenses = true }, icon = plainIcon(R.drawable.pi_info))
         }
     }
 }
