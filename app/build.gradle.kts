@@ -15,7 +15,7 @@ android {
         applicationId = "dev.ovpntv"
         minSdk = 24
         targetSdk = 35
-        versionCode = 11
+        versionCode = 12
         versionName = "1.4.0 (OpenVPN 2.7.8)"
 
         ndk {
