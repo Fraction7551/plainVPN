@@ -16,9 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -48,7 +45,10 @@ import dev.ovpntv.ui.components.ScreenTitle
 import dev.ovpntv.ui.components.SectionHeader
 import dev.ovpntv.ui.components.TvButton
 import dev.ovpntv.ui.theme.Dimens
-import dev.ovpntv.ui.theme.Palette
+import dev.ovpntv.R
+import dev.ovpntv.ui.components.plainIcon
+import dev.ovpntv.ui.theme.Plain
+import androidx.compose.foundation.layout.PaddingValues
 import dev.ovpntv.ui.theme.warning
 import dev.ovpntv.vpn.VpnState
 import java.io.File
@@ -74,7 +74,7 @@ fun ProfilesScreen(onConnect: (String?) -> Unit, onPickFile: () -> Boolean) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding), contentPadding = PaddingValues(Dimens.focusOutset)) {
                 items(profiles, key = { it.id }) { profile ->
                     ListCell(
                         title = profile.name,
@@ -87,7 +87,7 @@ fun ProfilesScreen(onConnect: (String?) -> Unit, onPickFile: () -> Boolean) {
                         trailing = if (profile.needsCredentials) {
                             {
                                 androidx.compose.material3.Icon(
-                                    Icons.Rounded.Key,
+                                    plainIcon(R.drawable.pi_lock),
                                     contentDescription = if (profile.hasCredentials) "Login saved" else "Login required",
                                     tint = if (profile.hasCredentials) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.warning,
                                 )
@@ -102,13 +102,13 @@ fun ProfilesScreen(onConnect: (String?) -> Unit, onPickFile: () -> Boolean) {
 
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Dimens.mediumPadding)) {
             SectionHeader("Import a profile")
-            TvButton("From phone or computer (Wi-Fi)", { showLanImport = true }, icon = Icons.Rounded.Wifi)
+            TvButton("From phone or computer (Wi-Fi)", { showLanImport = true }, icon = plainIcon(R.drawable.pi_cast))
             TvButton("From storage / USB", {
                 if (!onPickFile()) {
                     Toast.makeText(context, "This TV has no file picker. Use the Wi-Fi import or the drop folder instead.", Toast.LENGTH_LONG).show()
                 }
             }, icon = Icons.Rounded.FolderOpen)
-            TvButton("Scan drop folder", { scanDropFolder(context, dropFolder) }, icon = Icons.Rounded.Refresh)
+            TvButton("Scan drop folder", { scanDropFolder(context, dropFolder) }, icon = plainIcon(R.drawable.pi_refresh))
             Text(
                 "Drop folder (for adb push or file managers):\n${dropFolder?.absolutePath ?: "unavailable"}",
                 style = MaterialTheme.typography.bodySmall,
@@ -185,7 +185,8 @@ private fun ProfileActionsDialog(
     var confirmDelete by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Plain.Surface,
+        shape = Dimens.cardShape,
         title = { Text(profile.name) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding), modifier = Modifier.width(380.dp)) {
@@ -209,7 +210,8 @@ private fun CredentialsDialog(profile: Profile, onDismiss: () -> Unit, onSave: (
     var pass by remember { mutableStateOf(profile.password) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Plain.Surface,
+        shape = Dimens.cardShape,
         title = { Text("Login for ${profile.name}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumPadding), modifier = Modifier.width(380.dp)) {
@@ -234,7 +236,8 @@ private fun TextInputDialog(title: String, initial: String, onDismiss: () -> Uni
     var value by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Plain.Surface,
+        shape = Dimens.cardShape,
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumPadding), modifier = Modifier.width(380.dp)) {
@@ -266,7 +269,8 @@ private fun LanImportDialog(onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Plain.Surface,
+        shape = Dimens.cardShape,
         title = { Text("Import over Wi-Fi") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding), modifier = Modifier.width(460.dp)) {
@@ -280,9 +284,9 @@ private fun LanImportDialog(onDismiss: () -> Unit) {
                     }
                     Spacer(Modifier.height(Dimens.smallPadding))
                     Text("PIN", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(server.pin, style = MaterialTheme.typography.headlineLarge, color = Palette.Green)
+                    Text(server.pin, style = MaterialTheme.typography.headlineLarge, color = Plain.Apricot)
                     Text("Uploading works only while this window is open.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    lastResult?.let { Text(it, style = MaterialTheme.typography.titleMedium, color = if (it.startsWith("✓")) Palette.Green else MaterialTheme.colorScheme.error) }
+                    lastResult?.let { Text(it, style = MaterialTheme.typography.titleMedium, color = if (it.startsWith("✓")) Plain.Success else MaterialTheme.colorScheme.error) }
                 }
                 Spacer(Modifier.height(Dimens.smallPadding))
                 TvButton("Done", onDismiss)
@@ -294,10 +298,10 @@ private fun LanImportDialog(onDismiss: () -> Unit) {
 
 @Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = MaterialTheme.colorScheme.onSurface,
-    unfocusedBorderColor = MaterialTheme.colorScheme.primary,
+    focusedBorderColor = Plain.Focus,
+    unfocusedBorderColor = Plain.Border,
     focusedLabelColor = MaterialTheme.colorScheme.onSurface,
     cursorColor = MaterialTheme.colorScheme.onSurface,
-    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+    focusedContainerColor = Plain.Canvas,
+    unfocusedContainerColor = Plain.Canvas,
 )

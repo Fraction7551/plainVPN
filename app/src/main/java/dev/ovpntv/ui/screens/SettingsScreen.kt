@@ -34,7 +34,7 @@ fun SettingsScreen() {
     val update by Updater.state.collectAsState()
 
     Row(Modifier.fillMaxHeight()) {
-        Column(Modifier.weight(1.3f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.weight(1.3f), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
             ScreenTitle("Settings")
             SwitchCell(
                 title = "Connect when the TV starts",
@@ -60,7 +60,7 @@ fun SettingsScreen() {
                     is UpdateState.Available -> "Version ${s.info.versionName} is available"
                     is UpdateState.Downloading -> "Downloading ${s.info.versionName}... ${s.percent}%"
                     is UpdateState.Installing -> "Installing ${s.info.versionName}..."
-                    is UpdateState.NeedsPermission -> "Allow OpenVPN TV to install apps, then press here again"
+                    is UpdateState.NeedsPermission -> "Allow plain tunnel to install apps, then press here again"
                     is UpdateState.Failed -> s.message
                 },
                 onClick = {
@@ -84,7 +84,7 @@ fun SettingsScreen() {
             SectionHeader("About")
             listOf(
                 "App version" to BuildConfig.VERSION_NAME,
-                "VPN engine" to "OpenVPN 2.7.8",
+                "VPN engine" to "OpenVPN® 2.7.8",
                 "TLS library" to "mbed TLS 3.6.4",
                 "Compression" to "LZ4 1.10.0, LZO 2.10",
             ).forEach { (k, v) ->
@@ -94,7 +94,7 @@ fun SettingsScreen() {
                 }
             }
             Text(
-                "OpenVPN is a registered trademark of OpenVPN Inc. This app is not affiliated with OpenVPN Inc or Mullvad VPN AB.",
+                "OpenVPN® is a registered trademark of OpenVPN Inc. plain tunnel is not affiliated with OpenVPN Inc or Mullvad VPN AB.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

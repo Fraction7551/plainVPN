@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OpenVPN TV</string>
+    <string name="app_name">plain tunnel</string>
     <string name="notification_channel">VPN status</string>
     <string name="notification_channel_desc">Shows the current VPN connection state</string>
     <string name="updates_channel">App updates</string>

@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +30,10 @@ import dev.ovpntv.ui.components.ListCell
 import dev.ovpntv.ui.components.ScreenTitle
 import dev.ovpntv.ui.components.SectionHeader
 import dev.ovpntv.ui.components.TvButton
+import dev.ovpntv.R
+import dev.ovpntv.ui.components.plainIcon
 import dev.ovpntv.ui.theme.Dimens
+import dev.ovpntv.ui.theme.Plain
 import dev.ovpntv.ui.theme.warning
 import dev.ovpntv.vpn.TunnelState
 import dev.ovpntv.vpn.VpnState
@@ -59,7 +62,7 @@ fun SplitTunnelScreen(onConnect: (String?) -> Unit) {
     }
 
     Row(Modifier.fillMaxHeight()) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
             ScreenTitle("Split tunneling")
             Text(
                 "Choose which apps send their traffic through the VPN. Changes apply the next time the VPN connects.",
@@ -89,7 +92,7 @@ fun SplitTunnelScreen(onConnect: (String?) -> Unit) {
                 Spacer(Modifier.padding(top = Dimens.mediumPadding))
                 Text("The running connection still uses the previous app selection.", color = MaterialTheme.colorScheme.warning)
                 Spacer(Modifier.padding(top = Dimens.smallPadding))
-                TvButton("Reconnect to apply", { onConnect(null) }, icon = Icons.Rounded.Refresh)
+                TvButton("Reconnect to apply", { onConnect(null) }, icon = plainIcon(R.drawable.pi_refresh))
             }
         }
 
@@ -105,15 +108,14 @@ fun SplitTunnelScreen(onConnect: (String?) -> Unit) {
             )
             when (val list = sorted) {
                 null -> Text("Loading apps…", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding), contentPadding = PaddingValues(Dimens.focusOutset)) {
                     items(list, key = { it.packageName }) { app ->
                         val checked = app.packageName in split.apps
                         ListCell(
                             title = app.label,
                             subtitle = app.packageName,
                             selected = checked,
-                            containerColor = if (split.mode == SplitMode.Off) MaterialTheme.colorScheme.surfaceContainer
-                            else MaterialTheme.colorScheme.primary,
+                            containerColor = if (split.mode == SplitMode.Off) Plain.Canvas else Plain.Surface,
                             onClick = {
                                 val apps = if (checked) split.apps - app.packageName else split.apps + app.packageName
                                 // Picking an app while off implies the user wants "only selected".

@@ -11,13 +11,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.rounded.AltRoute
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Terminal
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,9 +31,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,27 +52,28 @@ import dev.ovpntv.ui.screens.ScheduleScreen
 import dev.ovpntv.ui.screens.SettingsScreen
 import dev.ovpntv.ui.screens.SplitTunnelScreen
 import dev.ovpntv.ui.theme.Dimens
-import dev.ovpntv.ui.theme.Palette
+import dev.ovpntv.ui.components.plainIcon
+import dev.ovpntv.ui.theme.Plain
 
-enum class Destination(val label: String, val icon: ImageVector) {
-    Home("Home", Icons.Rounded.Home),
-    Profiles("Profiles", Icons.AutoMirrored.Rounded.List),
-    Schedule("Schedule", Icons.Rounded.Schedule),
-    SplitTunnel("Split tunneling", Icons.Rounded.AltRoute),
-    Settings("Settings", Icons.Rounded.Settings),
-    Logs("Logs", Icons.Rounded.Terminal),
+enum class Destination(val label: String, @DrawableRes val icon: Int) {
+    Home("Connection", R.drawable.pi_power),
+    Profiles("Profiles", R.drawable.pi_location),
+    Schedule("Schedule", R.drawable.pi_clock),
+    SplitTunnel("Split tunneling", R.drawable.pi_tv),
+    Settings("Settings", R.drawable.pi_settings),
+    Logs("Logs", R.drawable.pi_info),
 }
 
 /**
- * Left-hand navigation drawer, styled like Mullvad's NavigationDrawerTv:
- * collapsed icons over a black-to-transparent gradient that expands on focus.
+ * Left-hand navigation: a collapsed icon rail that expands into the kit's sidebar
+ * (wordmark, icon + label items, current item on the selected tint) when it takes focus.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: () -> Boolean) {
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val gradient = remember { Brush.horizontalGradient(listOf(Color.Black, Color.Transparent)) }
+    val scrim = remember { SolidColor(Plain.Canvas.copy(alpha = 0.6f)) }
     val contentFocus = remember { FocusRequester() }
     val itemFocus = remember { Destination.entries.associateWith { FocusRequester() } }
     var contentHasFocus by remember { mutableStateOf(false) }
@@ -97,13 +94,13 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        scrimBrush = gradient,
+        scrimBrush = scrim,
         drawerContent = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxHeight()
-                    .background(gradient)
+                    .background(Plain.Surface)
                     .padding(vertical = Dimens.screenVertical, horizontal = 12.dp)
                     // Opening the drawer lands on the current screen, not the item nearest the old focus.
                     .focusProperties { enter = { itemFocus.getValue(destination) } }
@@ -126,7 +123,13 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(start = 88.dp, end = Dimens.screenHorizontal, top = Dimens.screenVertical, bottom = Dimens.screenVertical)
+                // Home lets its illustration panel run to the right and bottom edges, so it pads itself.
+                .padding(
+                    start = 88.dp + Dimens.mediumPadding,
+                    end = if (destination == Destination.Home) 0.dp else Dimens.screenHorizontal,
+                    top = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
+                    bottom = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
+                )
                 .onFocusChanged { contentHasFocus = it.hasFocus }
                 .focusRequester(contentFocus)
                 .focusGroup(),
@@ -150,24 +153,19 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
 
 @Composable
 private fun NavigationDrawerScope.DrawerHeader() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(start = if (hasFocus) 16.dp else 12.dp),
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_launcher_foreground),
-            contentDescription = null,
-            tint = Color.Unspecified,
-            modifier = Modifier.size(40.dp),
+    // Collapsed: the product pictogram. Expanded: the plain tunnel wordmark (never typeset).
+    if (hasFocus) {
+        Image(
+            painterResource(R.drawable.plain_tunnel_wordmark),
+            contentDescription = "plain tunnel",
+            modifier = Modifier.padding(start = 16.dp).height(36.dp),
         )
-        if (hasFocus) {
-            Text(
-                "OpenVPN TV",
-                style = androidx.tv.material3.MaterialTheme.typography.titleMedium,
-                color = Palette.OffWhite,
-                modifier = Modifier.padding(start = 6.dp),
-            )
-        }
+    } else {
+        Image(
+            painterResource(R.drawable.plain_tunnel_foreground),
+            contentDescription = "plain tunnel",
+            modifier = Modifier.padding(start = 4.dp).size(48.dp),
+        )
     }
 }
 
@@ -177,18 +175,18 @@ private fun NavigationDrawerScope.DrawerItem(destination: Destination, selected:
         selected = selected,
         onClick = onClick,
         modifier = modifier,
-        leadingContent = { Icon(destination.icon, contentDescription = null) },
+        leadingContent = { Icon(plainIcon(destination.icon), contentDescription = null) },
         colors = NavigationDrawerItemDefaults.colors(
-            contentColor = Palette.OffWhite,
-            inactiveContentColor = Palette.OffWhite,
-            focusedContainerColor = Palette.Blue,
-            focusedContentColor = Palette.OffWhite,
-            selectedContainerColor = Palette.BlueOnDarkBlue40,
-            selectedContentColor = Palette.OffWhite,
-            focusedSelectedContainerColor = Palette.Blue,
-            focusedSelectedContentColor = Palette.OffWhite,
-            pressedContainerColor = Palette.Blue,
-            pressedContentColor = Palette.OffWhite,
+            contentColor = Plain.Text,
+            inactiveContentColor = Plain.Muted,
+            focusedContainerColor = Plain.Apricot,
+            focusedContentColor = Plain.Pine,
+            selectedContainerColor = Plain.Selected,
+            selectedContentColor = Plain.Text,
+            focusedSelectedContainerColor = Plain.Apricot,
+            focusedSelectedContentColor = Plain.Pine,
+            pressedContainerColor = Plain.Apricot,
+            pressedContentColor = Plain.Pine,
         ),
     ) {
         Text(destination.label, maxLines = 1, overflow = TextOverflow.Clip)

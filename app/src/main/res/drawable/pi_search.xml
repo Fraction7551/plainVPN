@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from Plain kit v1.3.0 search.svg; do not hand-edit. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24.0dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M20 20l-5-5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+</vector>

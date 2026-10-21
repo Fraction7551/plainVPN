@@ -35,7 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -52,7 +51,9 @@ import dev.ovpntv.ui.components.SectionHeader
 import dev.ovpntv.ui.components.SwitchCell
 import dev.ovpntv.ui.components.TvButton
 import dev.ovpntv.ui.components.TvChip
+import dev.ovpntv.ui.components.focusRing
 import dev.ovpntv.ui.theme.Dimens
+import dev.ovpntv.ui.theme.Plain
 import dev.ovpntv.ui.theme.positive
 import dev.ovpntv.ui.theme.warning
 import java.text.DateFormat
@@ -74,8 +75,9 @@ fun ScheduleScreen() {
 
     Row(Modifier.fillMaxHeight()) {
         Column(
-            Modifier.weight(1.3f).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            // Padding inside the scroll so focus rings at the edges aren't clipped.
+            Modifier.weight(1.3f).verticalScroll(rememberScrollState()).padding(Dimens.focusOutset),
+            verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding),
         ) {
             ScreenTitle("Scheduled reconnect")
             Text(
@@ -100,7 +102,7 @@ fun ScheduleScreen() {
             SectionHeader("Time")
             Row(verticalAlignment = Alignment.CenterVertically) {
                 NumberStepper(schedule.hour, 0..23) { update(schedule.copy(hour = it)) }
-                Text(":", fontSize = 48.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 8.dp))
+                Text(":", style = MaterialTheme.typography.displaySmall, fontSize = 48.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 8.dp))
                 NumberStepper(schedule.minute, 0..59, step = 5) { update(schedule.copy(minute = it)) }
                 Text(
                     "Press OK on a number, change it with ▲ / ▼, press OK again to finish",
@@ -173,19 +175,21 @@ private fun NumberStepper(value: Int, range: IntRange, step: Int = 1, onChange: 
     if (!focused && editing) editing = false
     val size = range.last - range.first + 1
     fun shift(by: Int) = onChange(((value - range.first + by) % size + size) % size + range.first)
-    val bg = if (editing) MaterialTheme.colorScheme.positive else MaterialTheme.colorScheme.primary
-    val arrowTint = if (editing) MaterialTheme.colorScheme.positive else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (focused) 1f else 0.3f)
+    // Editing turns the number apricot, so it reads as "live" without relying on the arrows alone.
+    val bg = when {
+        editing -> Plain.Apricot
+        focused -> Plain.Raised
+        else -> Plain.Surface
+    }
+    val arrowTint = if (editing) Plain.Apricot else Plain.Muted.copy(alpha = if (focused) 1f else 0.3f)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.KeyboardArrowUp, null, tint = arrowTint)
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(width = 110.dp, height = 84.dp)
-                .background(
-                    if (focused) MaterialTheme.colorScheme.onPrimary.copy(alpha = Dimens.FOCUS_OVERLAY_ALPHA).compositeOver(bg) else bg,
-                    MaterialTheme.shapes.small,
-                )
-                .border(if (focused) Dimens.focusBorder else 0.dp, MaterialTheme.colorScheme.onPrimary, MaterialTheme.shapes.small)
+                .focusRing(focused, 16.dp)
+                .background(bg, Dimens.cardShape)
                 .onPreviewKeyEvent { e ->
                     if (!editing || e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when (e.key) {
@@ -197,7 +201,7 @@ private fun NumberStepper(value: Int, range: IntRange, step: Int = 1, onChange: 
                 }
                 .clickable(interactionSource = interaction, indication = null) { editing = !editing },
         ) {
-            Text("%02d".format(value), fontSize = 48.sp, color = MaterialTheme.colorScheme.onPrimary)
+            Text("%02d".format(value), style = MaterialTheme.typography.displaySmall, fontSize = 48.sp, color = if (editing) Plain.Pine else Plain.Text)
         }
         Icon(Icons.Rounded.KeyboardArrowDown, null, tint = arrowTint)
     }

@@ -47,8 +47,8 @@ fun LogsScreen() {
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.shapes.small)
-                .padding(Dimens.smallPadding),
+                .background(MaterialTheme.colorScheme.tertiaryContainer, Dimens.cardShape)
+                .padding(Dimens.mediumPadding),
         ) {
             if (log.isEmpty()) item { LogLine("No log output yet. Connect to see OpenVPN's output here.") }
             itemsIndexed(log) { _, line -> LogLine(line) }
@@ -69,7 +69,7 @@ private fun LogLine(text: String) {
         color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiaryContainer)
+            .background(if (focused) dev.ovpntv.ui.theme.Plain.Selected else MaterialTheme.colorScheme.tertiaryContainer)
             .focusable(interactionSource = interaction)
             .padding(horizontal = 4.dp, vertical = 1.dp),
     )
