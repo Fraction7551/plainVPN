@@ -1,0 +1,156 @@
+package dev.ovpntv.importer
+
+import dev.ovpntv.data.InvalidProfileException
+import dev.ovpntv.data.ProfileRepository
+import java.io.BufferedInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.Inet4Address
+import java.net.InetSocketAddress
+import java.net.NetworkInterface
+import java.net.ServerSocket
+import java.net.Socket
+import java.net.URLDecoder
+import kotlin.random.Random
+
+/**
+ * Tiny HTTP server that lets a phone or PC on the same network upload .ovpn
+ * files to the TV. It only runs while the import screen is open, and every
+ * upload must carry the PIN shown on the TV.
+ */
+class LanImportServer(private val onImported: (String) -> Unit, private val onError: (String) -> Unit) {
+    val pin: String = Random.nextInt(1000, 10000).toString()
+    private var server: ServerSocket? = null
+    @Volatile private var running = false
+    @Volatile private var failedPins = 0
+
+    val port: Int get() = server?.localPort ?: 0
+
+    fun start(): Boolean {
+        val socket = (PORTS.firstNotNullOfOrNull { p ->
+            runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(p)) } }.getOrNull()
+        }) ?: return false
+        server = socket
+        running = true
+        Thread({
+            while (running) {
+                val client = runCatching { socket.accept() }.getOrNull() ?: break
+                Thread({ client.use { handle(it) } }, "lan-import-client").start()
+            }
+        }, "lan-import").start()
+        return true
+    }
+
+    fun stop() {
+        running = false
+        runCatching { server?.close() }
+        server = null
+    }
+
+    private fun handle(socket: Socket) {
+        socket.soTimeout = 15_000
+        val input = BufferedInputStream(socket.getInputStream())
+        val out = socket.getOutputStream()
+        val requestLine = readLine(input) ?: return
+        val headers = mutableMapOf<String, String>()
+        while (true) {
+            val line = readLine(input) ?: return
+            if (line.isEmpty()) break
+            val colon = line.indexOf(':')
+            if (colon > 0) headers[line.substring(0, colon).trim().lowercase()] = line.substring(colon + 1).trim()
+        }
+        val parts = requestLine.split(" ")
+        val method = parts.getOrNull(0)
+        val path = parts.getOrNull(1).orEmpty()
+
+        when {
+            method == "GET" && (path == "/" || path.startsWith("/?")) -> respond(out, 200, "text/html; charset=utf-8", PAGE)
+            method == "POST" && path == "/upload" -> {
+                val length = headers["content-length"]?.toIntOrNull() ?: -1
+                if (length !in 1..MAX_UPLOAD) return respond(out, 413, "text/plain", "File is empty or larger than 1 MB")
+                if (failedPins >= MAX_FAILED_PINS) return respond(out, 403, "text/plain", "Too many wrong PINs. Reopen the import screen on the TV.")
+                if (headers["x-pin"] != pin) {
+                    failedPins++
+                    return respond(out, 403, "text/plain", "Wrong PIN. Use the PIN shown on the TV.")
+                }
+                val body = ByteArray(length)
+                var read = 0
+                while (read < length) {
+                    val n = input.read(body, read, length - read)
+                    if (n < 0) break
+                    read += n
+                }
+                val name = URLDecoder.decode(headers["x-filename"] ?: "Profile", "UTF-8")
+                try {
+                    val profile = ProfileRepository.import(name, String(body, 0, read, Charsets.UTF_8))
+                    onImported(profile.name)
+                    respond(out, 200, "text/plain", "Imported \"${profile.name}\"")
+                } catch (e: InvalidProfileException) {
+                    onError(e.message.orEmpty())
+                    respond(out, 422, "text/plain", e.message.orEmpty())
+                }
+            }
+            else -> respond(out, 404, "text/plain", "Not found")
+        }
+    }
+
+    private fun readLine(input: InputStream): String? {
+        val buf = ByteArrayOutputStream()
+        while (true) {
+            val b = input.read()
+            if (b < 0) return if (buf.size() == 0) null else buf.toString("UTF-8")
+            if (b == '\n'.code) return buf.toString("UTF-8").trimEnd('\r')
+            if (buf.size() > 8192) return null
+            buf.write(b)
+        }
+    }
+
+    private fun respond(out: OutputStream, code: Int, type: String, body: String) {
+        val bytes = body.toByteArray(Charsets.UTF_8)
+        val status = mapOf(200 to "OK", 403 to "Forbidden", 404 to "Not Found", 413 to "Payload Too Large", 422 to "Unprocessable Entity")[code]
+        out.write("HTTP/1.1 $code $status\r\nContent-Type: $type\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray())
+        out.write(bytes)
+        out.flush()
+    }
+
+    companion object {
+        private val PORTS = listOf(8080, 8088, 8888, 0)
+        private const val MAX_UPLOAD = 1024 * 1024
+        private const val MAX_FAILED_PINS = 10
+
+        /** Site-local IPv4 addresses of this device, for display. */
+        fun localAddresses(): List<String> = runCatching {
+            NetworkInterface.getNetworkInterfaces().toList()
+                .filter { it.isUp && !it.isLoopback && !it.name.startsWith("tun") }
+                .flatMap { it.inetAddresses.toList() }
+                .filterIsInstance<Inet4Address>()
+                .filter { it.isSiteLocalAddress }
+                .map { it.hostAddress.orEmpty() }
+        }.getOrDefault(emptyList())
+
+        private val PAGE = """
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Send profile to TV</title>
+<style>
+:root{--bg:#192E45;--card:#294D73;--fg:#F8F7F1;--muted:#A3ABB5;--green:#44AD4D;--red:#E34039}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif;display:flex;justify-content:center;padding:24px 16px}
+main{max-width:440px;width:100%}h1{font-size:24px;margin:0 0 8px}p{color:var(--muted);margin:0 0 20px}
+label{display:block;font-weight:600;margin:16px 0 6px}input{width:100%;box-sizing:border-box;padding:12px;border-radius:4px;border:0;background:var(--card);color:var(--fg);font-size:16px}
+button{margin-top:24px;width:100%;padding:12px;border:0;border-radius:4px;background:var(--green);color:var(--fg);font-size:16px;font-weight:600}
+#msg{margin-top:16px;font-weight:600}
+</style></head><body><main>
+<h1>Send VPN profiles to your TV</h1><p>Pick one or more .ovpn files and enter the PIN shown on the TV screen.</p>
+<label for="f">Profile files</label><input id="f" type="file" accept=".ovpn,.conf" multiple>
+<label for="pin">PIN</label><input id="pin" inputmode="numeric" maxlength="4" autocomplete="off">
+<button id="go">Send to TV</button><div id="msg"></div>
+<script>
+document.getElementById('go').onclick=async()=>{const m=document.getElementById('msg');const files=document.getElementById('f').files;const pin=document.getElementById('pin').value.trim();
+if(!files.length){m.style.color='var(--red)';m.textContent='Choose a file first.';return}
+let out=[];for(const file of files){try{const r=await fetch('/upload',{method:'POST',headers:{'X-Pin':pin,'X-Filename':encodeURIComponent(file.name),'Content-Type':'text/plain'},body:await file.text()});
+out.push((r.ok?'✓ ':'✗ ')+await r.text())}catch(e){out.push('✗ '+file.name+': '+e)}}
+m.style.color=out.every(s=>s.startsWith('✓'))?'var(--green)':'var(--red)';m.innerHTML=out.map(s=>s.replace(/[<&]/g,c=>({'<':'&lt;','&':'&amp;'})[c])).join('<br>')}
+</script></main></body></html>
+""".trimIndent()
+    }
+}
