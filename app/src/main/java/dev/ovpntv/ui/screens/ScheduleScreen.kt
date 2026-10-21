@@ -105,7 +105,7 @@ fun ScheduleScreen() {
                 SectionHeader("Time")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     NumberStepper(schedule.hour, 0..23) { update(schedule.copy(hour = it)) }
-                    Text(":", style = MaterialTheme.typography.displaySmall, fontSize = 48.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 8.dp))
+                    Text(":", style = MaterialTheme.typography.displaySmall, fontSize = 40.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 8.dp))
                     NumberStepper(schedule.minute, 0..59, step = 5) { update(schedule.copy(minute = it)) }
                     Text(
                         "Press OK on a number, change it with ▲ / ▼, press OK again to finish",
@@ -118,14 +118,14 @@ fun ScheduleScreen() {
                 SectionHeader("Days")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
                     DAY_LABELS.forEachIndexed { i, label ->
-                        TvChip(label, schedule.runsOn(i), { update(schedule.copy(days = schedule.days xor (1 shl i))) })
+                        TvChip(label, schedule.runsOn(i), { update(schedule.copy(days = schedule.days xor (1 shl i))) }, compact = true)
                     }
                 }
 
                 SectionHeader("Stay disconnected for")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
                     OFFLINE_OPTIONS.forEach { seconds ->
-                        TvChip(formatSeconds(seconds), schedule.offlineSeconds == seconds, { update(schedule.copy(offlineSeconds = seconds)) })
+                        TvChip(formatSeconds(seconds), schedule.offlineSeconds == seconds, { update(schedule.copy(offlineSeconds = seconds)) }, compact = true)
                     }
                 }
                 Spacer(Modifier.size(Dimens.largePadding))
@@ -191,7 +191,7 @@ private fun NumberStepper(value: Int, range: IntRange, step: Int = 1, onChange: 
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(width = 110.dp, height = 84.dp)
+                .size(width = 96.dp, height = 68.dp)
                 .focusRing(focused, 16.dp)
                 .background(bg, Dimens.cardShape)
                 .onPreviewKeyEvent { e ->
@@ -205,7 +205,7 @@ private fun NumberStepper(value: Int, range: IntRange, step: Int = 1, onChange: 
                 }
                 .clickable(interactionSource = interaction, indication = null) { editing = !editing },
         ) {
-            Text("%02d".format(value), style = MaterialTheme.typography.displaySmall, fontSize = 48.sp, color = if (editing) Plain.OnPrimary else Plain.Text)
+            Text("%02d".format(value), style = MaterialTheme.typography.displaySmall, fontSize = 40.sp, color = if (editing) Plain.OnPrimary else Plain.Text)
         }
         Icon(Icons.Rounded.KeyboardArrowDown, null, tint = arrowTint)
     }

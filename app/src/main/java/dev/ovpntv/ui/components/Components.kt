@@ -255,9 +255,9 @@ fun ScreenTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, style = MaterialTheme.typography.headlineSmall, color = Plain.Text, modifier = modifier.padding(bottom = Dimens.mediumPadding))
 }
 
-/** Selectable option. Selected = blue with a check mark, so the state isn't colour-only. */
+/** Selectable option. Selected = blue with a check mark, so the state isn't colour-only. [compact] for dense option grids. */
 @Composable
-fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val bg = when {
@@ -269,16 +269,16 @@ fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = modifier
-            .heightIn(min = 44.dp)
+            .heightIn(min = if (compact) 36.dp else 44.dp)
             .focusRing(focused)
             .clip(Dimens.chipShape)
             .background(bg)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = Dimens.mediumPadding, vertical = Dimens.smallPadding),
+            .padding(horizontal = if (compact) 12.dp else Dimens.mediumPadding, vertical = if (compact) 4.dp else Dimens.smallPadding),
     ) {
         val fg = if (selected) Plain.OnPrimary else Plain.Text
-        if (selected) Icon(plainIcon(R.drawable.pi_check), contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
-        Text(text, style = MaterialTheme.typography.labelLarge, color = fg)
+        if (selected) Icon(plainIcon(R.drawable.pi_check), contentDescription = null, tint = fg, modifier = Modifier.size(if (compact) 16.dp else 18.dp))
+        Text(text, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge, color = fg)
     }
 }
 

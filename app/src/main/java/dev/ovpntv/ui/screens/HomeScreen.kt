@@ -172,6 +172,8 @@ private fun Status(state: TunnelState, blocking: Boolean, splitActive: Boolean) 
         },
         tween(Plain.SHEET_MS), label = "statusCircle",
     )
+    // Circle + heading centred as a pair, explanation centred under them. The heading has one
+    // size for every state (it fits "Couldn't connect."), so only the words change.
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
@@ -191,12 +193,10 @@ private fun Status(state: TunnelState, blocking: Boolean, splitActive: Boolean) 
                     modifier = Modifier.size(30.dp),
                 )
             }
-            Spacer(Modifier.width(16.dp))
-            val heading = statusText(state)
+            Spacer(Modifier.width(18.dp))
             Text(
-                text = heading,
-                // Long states ("Couldn't connect.", "Disconnecting…") step down so they stay on one line.
-                style = MaterialTheme.typography.displaySmall.copy(fontSize = if (heading.length > 12) 42.sp else 48.sp, lineHeight = 56.sp),
+                text = statusText(state),
+                style = MaterialTheme.typography.displaySmall.copy(fontSize = 42.sp, lineHeight = 50.sp),
                 color = Plain.Text,
                 maxLines = 1,
                 modifier = Modifier.semantics { heading() },
