@@ -94,7 +94,7 @@ fun SettingsScreen() {
                 }
             }
             Text(
-                "OpenVPN® is a registered trademark of OpenVPN Inc. plain tunnel is not affiliated with OpenVPN Inc or Mullvad VPN AB.",
+                "OpenVPN® is a registered trademark of OpenVPN Inc. plain tunnel is not affiliated with OpenVPN Inc.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -74,58 +74,62 @@ fun ScheduleScreen() {
     }
 
     Row(Modifier.fillMaxHeight()) {
-        Column(
-            // Padding inside the scroll so focus rings at the edges aren't clipped.
-            Modifier.weight(1.3f).verticalScroll(rememberScrollState()).padding(Dimens.focusOutset),
-            verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding),
-        ) {
+        Column(Modifier.weight(1.3f)) {
+            // Title and intro stay put; only the controls scroll, so focusing the first
+            // switch can't scroll the title off the top.
             ScreenTitle("Scheduled reconnect")
             Text(
                 "At the chosen time the VPN disconnects, stays off for the selected period, then reconnects by itself. " +
                     "Useful for picking up a fresh server, clearing a stale session or matching a router's maintenance window.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = Dimens.mediumPadding),
+                modifier = Modifier.padding(bottom = Dimens.smallPadding),
             )
-            SwitchCell(
-                title = "Automatic disconnect & reconnect",
-                checked = schedule.enabled,
-                onCheckedChange = { update(schedule.copy(enabled = it)) },
-            )
-            SwitchCell(
-                title = "Connect at this time if the VPN is off",
-                subtitle = "Otherwise the schedule only cycles a connection that is already running",
-                checked = schedule.connectIfDisconnected,
-                onCheckedChange = { update(schedule.copy(connectIfDisconnected = it)) },
-            )
-
-            SectionHeader("Time")
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                NumberStepper(schedule.hour, 0..23) { update(schedule.copy(hour = it)) }
-                Text(":", style = MaterialTheme.typography.displaySmall, fontSize = 48.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 8.dp))
-                NumberStepper(schedule.minute, 0..59, step = 5) { update(schedule.copy(minute = it)) }
-                Text(
-                    "Press OK on a number, change it with ▲ / ▼, press OK again to finish",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = Dimens.mediumPadding),
+            Column(
+                // Padding inside the scroll so focus rings at the edges aren't clipped.
+                Modifier.verticalScroll(rememberScrollState()).padding(Dimens.focusOutset),
+                verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding),
+            ) {
+                SwitchCell(
+                    title = "Automatic disconnect & reconnect",
+                    checked = schedule.enabled,
+                    onCheckedChange = { update(schedule.copy(enabled = it)) },
                 )
-            }
+                SwitchCell(
+                    title = "Connect at this time if the VPN is off",
+                    subtitle = "Otherwise the schedule only cycles a connection that is already running",
+                    checked = schedule.connectIfDisconnected,
+                    onCheckedChange = { update(schedule.copy(connectIfDisconnected = it)) },
+                )
 
-            SectionHeader("Days")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
-                DAY_LABELS.forEachIndexed { i, label ->
-                    TvChip(label, schedule.runsOn(i), { update(schedule.copy(days = schedule.days xor (1 shl i))) })
+                SectionHeader("Time")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    NumberStepper(schedule.hour, 0..23) { update(schedule.copy(hour = it)) }
+                    Text(":", style = MaterialTheme.typography.displaySmall, fontSize = 48.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 8.dp))
+                    NumberStepper(schedule.minute, 0..59, step = 5) { update(schedule.copy(minute = it)) }
+                    Text(
+                        "Press OK on a number, change it with ▲ / ▼, press OK again to finish",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = Dimens.mediumPadding),
+                    )
                 }
-            }
 
-            SectionHeader("Stay disconnected for")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
-                OFFLINE_OPTIONS.forEach { seconds ->
-                    TvChip(formatSeconds(seconds), schedule.offlineSeconds == seconds, { update(schedule.copy(offlineSeconds = seconds)) })
+                SectionHeader("Days")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
+                    DAY_LABELS.forEachIndexed { i, label ->
+                        TvChip(label, schedule.runsOn(i), { update(schedule.copy(days = schedule.days xor (1 shl i))) })
+                    }
                 }
+
+                SectionHeader("Stay disconnected for")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
+                    OFFLINE_OPTIONS.forEach { seconds ->
+                        TvChip(formatSeconds(seconds), schedule.offlineSeconds == seconds, { update(schedule.copy(offlineSeconds = seconds)) })
+                    }
+                }
+                Spacer(Modifier.size(Dimens.largePadding))
             }
-            Spacer(Modifier.size(Dimens.largePadding))
         }
 
         Spacer(Modifier.width(Dimens.largePadding))
