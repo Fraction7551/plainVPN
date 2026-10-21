@@ -52,11 +52,11 @@ import dev.ovpntv.vpn.TunnelState
  */
 
 /** Height of the hills band; content above it should leave at least this much room. */
-val GroundHeight = 72.dp
-private val ArchWidth = 92.dp
+val GroundHeight = 60.dp
+private val ArchWidth = 72.dp
 /** The arch master is 250 x 405 artwork units; the bird master 240 x 200, drawn at 0.55 in the artwork. */
 private const val ARCH_ASPECT = 405f / 250f
-private const val BIRD_SCALE = 0.55f * 1.25f // a touch bigger than the artwork so it reads on a TV
+private const val BIRD_SCALE = 0.55f * 1.35f // a touch bigger than the artwork so it reads on a TV
 /** Feet centre within the bird master, as fractions (x is mirrored: the bird faces left). */
 private const val FEET_X_MIRRORED = (240f - 133f) / 240f
 private const val FEET_Y = 197f / 200f

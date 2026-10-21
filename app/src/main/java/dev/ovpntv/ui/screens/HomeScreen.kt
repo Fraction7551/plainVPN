@@ -10,6 +10,7 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,12 +55,10 @@ import dev.ovpntv.data.ReconnectSchedule
 import dev.ovpntv.data.Settings
 import dev.ovpntv.data.SplitMode
 import dev.ovpntv.schedule.ReconnectScheduler
+import dev.ovpntv.ui.ContentStart
 import dev.ovpntv.ui.components.ButtonStyle
-import dev.ovpntv.ui.components.ErrorBanner
-import dev.ovpntv.ui.components.GroundHeight
 import dev.ovpntv.ui.components.FeatureChip
 import dev.ovpntv.ui.components.PerchScene
-import dev.ovpntv.ui.components.PlainCard
 import dev.ovpntv.ui.components.TvButton
 import dev.ovpntv.ui.components.UpdateBanner
 import dev.ovpntv.ui.components.focusRing
@@ -72,12 +71,24 @@ import dev.ovpntv.vpn.TunnelState
 import dev.ovpntv.vpn.VpnState
 import kotlinx.coroutines.delay
 import java.util.Date
+import java.util.Locale
 
-/**
- * Connection screen, after the kit's plain tunnel spec: wordmark, status symbol + heading,
- * the selected profile as a location card, live details, one apricot primary action. The
- * kit artwork is the ground: hills along the bottom, the arch and bird on the right (see PerchScene).
+/*
+ * Connection screen. One centred axis, read top to bottom in the order of the kit's
+ * plain tunnel spec (and of most VPN apps): what state am I in, through which profile,
+ * what can I do about it, then the numbers.
+ *
+ *   top bar      wordmark                                  feature chips
+ *   centre       [lock] Connected.
+ *                one line of plain explanation
+ *                profile card
+ *                primary action (+ one secondary when relevant)
+ *                quiet stats strip (only values the service reported)
+ *   ground       kit hills, small arch on the right, the bird (PerchScene)
  */
+
+private val ColumnWidth = 520.dp
+
 @Composable
 fun HomeScreen(
     onConnect: (String?) -> Unit,
@@ -90,145 +101,113 @@ fun HomeScreen(
     val profiles by ProfileRepository.profiles.collectAsState()
     val schedule by Settings.schedule.collectAsState()
     val split by Settings.splitTunnel.collectAsState()
-    val selected = profiles.firstOrNull { it.id == selectedId }
-
     val blocking by VpnState.blocking.collectAsState()
+    val selected = profiles.firstOrNull { it.id == selectedId }
 
     val primaryFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { primaryFocus.requestFocus() } }
 
     Box(Modifier.fillMaxSize()) {
-        // The kit's hills run along the bottom as the ground; the arch and bird stand on the right.
-        PerchScene(state, archCenter = 0.8f)
+        PerchScene(state, archCenter = 0.9f)
 
-        Row(Modifier.fillMaxSize().padding(start = dev.ovpntv.ui.ContentStart, top = Dimens.screenVertical, end = Dimens.screenHorizontal)) {
+        Column(Modifier.fillMaxSize().padding(start = ContentStart, end = Dimens.screenHorizontal, top = 28.dp)) {
+            TopBar(schedule, split)
+
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(end = Dimens.largePadding, bottom = GroundHeight + Dimens.mediumPadding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth().weight(1f).padding(bottom = 84.dp),
+                verticalArrangement = Arrangement.Center,
             ) {
-                Image(
-                    painterResource(R.drawable.plain_tunnel_wordmark),
-                    contentDescription = "plain tunnel",
-                    modifier = Modifier.height(36.dp),
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(ColumnWidth)) {
+                    // Rare, so it may push the column down rather than cover it.
+                    AppUpdateBanner(Modifier.padding(bottom = 20.dp))
+                    Status(state, blocking, split.isActive)
+                    Spacer(Modifier.height(24.dp))
+                    ProfileCard(state, selected, profiles.isNotEmpty(), onOpenProfiles)
+                    Spacer(Modifier.height(12.dp))
+                    Actions(state, selected, blocking, schedule.enabled, primaryFocus, onConnect, onDisconnect, onOpenProfiles, onOpenSchedule)
+                    Spacer(Modifier.height(20.dp))
+                    StatsStrip(state)
+                }
+            }
+        }
+
+    }
+}
+
+@Composable
+private fun TopBar(schedule: ReconnectSchedule, split: dev.ovpntv.data.SplitTunnel) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(40.dp)) {
+        Image(painterResource(R.drawable.plain_tunnel_wordmark), contentDescription = "plain tunnel", modifier = Modifier.height(34.dp))
+        Spacer(Modifier.weight(1f))
+        Row(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
+            if (split.isActive) {
+                val count = split.apps.size
+                FeatureChip(
+                    icon = plainIcon(R.drawable.pi_tv),
+                    text = when (split.mode) {
+                        SplitMode.OnlySelected -> "$count app${if (count == 1) "" else "s"} on VPN"
+                        else -> "$count app${if (count == 1) "" else "s"} bypass"
+                    },
                 )
-                Spacer(Modifier.height(28.dp))
-                StatusHero(state, blocking, split.isActive)
-                (state as? TunnelState.Disconnected)?.error?.let {
-                    Spacer(Modifier.height(Dimens.mediumPadding))
-                    ErrorBanner(it)
-                }
-                Spacer(Modifier.weight(1f))
-                ProfileCard(state, selected, profiles.isNotEmpty(), onOpenProfiles)
-                Spacer(Modifier.height(Dimens.mediumPadding))
-
-                // One primary button whose label changes with the state, so focus stays on it
-                // instead of jumping to the drawer when Connect turns into Cancel and back.
-                val failed = (state as? TunnelState.Disconnected)?.error != null
-                val (primaryText, primaryOnClick) = when (state) {
-                    is TunnelState.Disconnected -> (if (failed) "Try again" else "Connect") to { if (selected == null) onOpenProfiles() else onConnect(selected.id) }
-                    is TunnelState.Connecting -> "Cancel" to onDisconnect
-                    is TunnelState.ScheduledPause -> "Stay disconnected" to onDisconnect
-                    TunnelState.Disconnecting -> "Disconnecting…" to onDisconnect
-                    else -> "Disconnect" to onDisconnect
-                }
-                // Side by side so Unblock can't be pushed off screen by the error banner.
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.mediumPadding)) {
-                    TvButton(
-                        text = primaryText,
-                        onClick = primaryOnClick,
-                        style = ButtonStyle.Primary,
-                        icon = plainIcon(R.drawable.pi_power),
-                        modifier = Modifier.weight(1f).focusRequester(primaryFocus),
-                    )
-                    if (blocking && state is TunnelState.Disconnected) {
-                        // This button disappears once clicked, so hand focus to Connect first.
-                        TvButton(
-                            "Unblock apps",
-                            { runCatching { primaryFocus.requestFocus() }; onDisconnect() },
-                            Modifier.weight(1f),
-                            icon = plainIcon(R.drawable.pi_unlock),
-                        )
-                    } else if (!schedule.enabled) {
-                        TvButton("Schedule", onOpenSchedule, Modifier.weight(1f), icon = plainIcon(R.drawable.pi_clock))
-                    }
-                }
             }
-
-            // Details and the update banner sit in the sky above the arch, clear of the bird.
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
-                modifier = Modifier
-                    .weight(0.9f)
-                    .fillMaxHeight()
-                    .padding(bottom = 210.dp),
-            ) {
-                AppUpdateBanner(Modifier)
-                Spacer(Modifier.weight(1f))
-                ConnectionDetails(state)
-                if (schedule.enabled || split.isActive) {
-                    // Stacked rather than side by side: the column is too narrow for both on one line.
-                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
-                        if (schedule.enabled) ScheduleChip(schedule)
-                        if (split.isActive) {
-                            val count = split.apps.size
-                            FeatureChip(
-                                icon = plainIcon(R.drawable.pi_tv),
-                                text = when (split.mode) {
-                                    SplitMode.OnlySelected -> "$count app${if (count == 1) "" else "s"} on VPN"
-                                    else -> "$count app${if (count == 1) "" else "s"} bypass"
-                                },
-                            )
-                        }
-                    }
-                }
-            }
+            if (schedule.enabled) ScheduleChip(schedule)
         }
     }
 }
 
-/**
- * Status hero under the wordmark, after the bible's desktop connection screen: a small
- * "VPN connection" label with the lock symbol, the state as a big Fredoka heading, then one
- * line of plain explanation. Symbol + words, so the state never depends on colour.
- */
+/** Symbol + big heading on one line, the explanation centred under it. Never colour alone. */
 @Composable
-private fun StatusHero(state: TunnelState, blocking: Boolean, splitActive: Boolean) {
+private fun Status(state: TunnelState, blocking: Boolean, splitActive: Boolean) {
     val connected = state is TunnelState.Connected
     val busy = state is TunnelState.Connecting || state is TunnelState.Disconnecting
-    val circle by animateColorAsState(if (connected) Plain.Sage else Plain.Raised, tween(Plain.SHEET_MS), label = "statusCircle")
-    Column(Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+    val failed = (state as? TunnelState.Disconnected)?.error
+    val circle by animateColorAsState(
+        when {
+            connected -> Plain.Sage
+            failed != null -> Plain.Danger
+            else -> Plain.Raised
+        },
+        tween(Plain.SHEET_MS), label = "statusCircle",
+    )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(44.dp)) {
-                Box(Modifier.size(44.dp).background(circle, CircleShape))
-                if (busy) CircularProgressIndicator(color = Plain.Apricot, strokeWidth = 2.5.dp, trackColor = Plain.Raised, modifier = Modifier.size(44.dp))
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(56.dp)) {
+                Box(Modifier.size(56.dp).background(circle, CircleShape))
+                if (busy) CircularProgressIndicator(color = Plain.Apricot, strokeWidth = 3.dp, trackColor = Plain.Raised, modifier = Modifier.size(56.dp))
                 Icon(
-                    plainIcon(if (connected || busy || state is TunnelState.ScheduledPause) R.drawable.pi_lock else R.drawable.pi_unlock),
+                    plainIcon(
+                        when {
+                            failed != null -> R.drawable.pi_warning
+                            connected || busy || state is TunnelState.ScheduledPause -> R.drawable.pi_lock
+                            else -> R.drawable.pi_unlock
+                        },
+                    ),
                     contentDescription = null,
-                    tint = if (connected) Plain.Pine else Plain.Cream,
-                    modifier = Modifier.size(22.dp),
+                    tint = if (connected || failed != null) Plain.Pine else Plain.Cream,
+                    modifier = Modifier.size(28.dp),
                 )
             }
-            Spacer(Modifier.width(12.dp))
-            Text("VPN connection", style = MaterialTheme.typography.titleMedium, color = Plain.Muted)
+            Spacer(Modifier.width(16.dp))
+            val heading = statusText(state)
+            Text(
+                text = heading,
+                // Long states ("Couldn't connect.", "Disconnecting…") step down so they stay on one line.
+                style = MaterialTheme.typography.displaySmall.copy(fontSize = if (heading.length > 12) 42.sp else 48.sp, lineHeight = 56.sp),
+                color = Plain.Text,
+                maxLines = 1,
+                modifier = Modifier.semantics { heading() },
+            )
         }
-        Spacer(Modifier.height(10.dp))
-        val heading = statusText(state)
-        // Long states ("Couldn't connect.", "Disconnecting…") step down a size so they stay on one line.
-        val size = if (heading.length > 12) 40.sp else 48.sp
+        Spacer(Modifier.height(6.dp))
         Text(
-            text = heading,
-            style = MaterialTheme.typography.displaySmall.copy(fontSize = size, lineHeight = 54.sp),
-            color = Plain.Text,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.semantics { heading() },
-        )
-        Text(
-            text = statusDetail(state, blocking, splitActive),
+            text = failed ?: statusDetail(state, blocking, splitActive),
             style = MaterialTheme.typography.bodyLarge,
-            color = Plain.Muted,
+            color = if (failed != null) Plain.Danger else Plain.Muted,
+            textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
@@ -264,14 +243,100 @@ private fun ProfileCard(state: TunnelState, selected: Profile?, hasProfiles: Boo
         Column(Modifier.weight(1f)) {
             Text(name, style = MaterialTheme.typography.titleMedium, color = Plain.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                selected?.let { "${it.serverLabel} · via OpenVPN ${it.protocol?.uppercase().orEmpty()}".trim() } ?: if (hasProfiles) "Pick the one to connect with" else "No profile imported yet",
+                selected?.let { "via OpenVPN ${it.protocol?.uppercase().orEmpty()} · ${it.serverLabel}".trim() }
+                    ?: if (hasProfiles) "Pick the one to connect with" else "No profile imported yet",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Plain.Muted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Icon(plainIcon(R.drawable.pi_chevron_right), contentDescription = "Change profile", tint = Plain.Text, modifier = Modifier.size(24.dp))
+        Text("Change", style = MaterialTheme.typography.labelLarge, color = Plain.Muted)
+        Icon(plainIcon(R.drawable.pi_chevron_right), contentDescription = null, tint = Plain.Text, modifier = Modifier.size(24.dp))
+    }
+}
+
+@Composable
+private fun Actions(
+    state: TunnelState,
+    selected: Profile?,
+    blocking: Boolean,
+    scheduleEnabled: Boolean,
+    primaryFocus: FocusRequester,
+    onConnect: (String?) -> Unit,
+    onDisconnect: () -> Unit,
+    onOpenProfiles: () -> Unit,
+    onOpenSchedule: () -> Unit,
+) {
+    // One primary button whose label changes with the state, so focus stays on it
+    // instead of jumping to the drawer when Connect turns into Cancel and back.
+    val failed = (state as? TunnelState.Disconnected)?.error != null
+    val (primaryText, primaryOnClick) = when (state) {
+        is TunnelState.Disconnected -> (if (failed) "Try again" else "Connect") to { if (selected == null) onOpenProfiles() else onConnect(selected.id) }
+        is TunnelState.Connecting -> "Cancel" to onDisconnect
+        is TunnelState.ScheduledPause -> "Stay disconnected" to onDisconnect
+        TunnelState.Disconnecting -> "Disconnecting…" to onDisconnect
+        else -> "Disconnect" to onDisconnect
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.mediumPadding)) {
+        TvButton(
+            text = primaryText,
+            onClick = primaryOnClick,
+            style = ButtonStyle.Primary,
+            icon = plainIcon(R.drawable.pi_power),
+            modifier = Modifier.weight(1.4f).focusRequester(primaryFocus),
+        )
+        if (blocking && state is TunnelState.Disconnected) {
+            // This button disappears once clicked, so hand focus to Connect first.
+            TvButton(
+                "Unblock apps",
+                { runCatching { primaryFocus.requestFocus() }; onDisconnect() },
+                Modifier.weight(1f),
+                icon = plainIcon(R.drawable.pi_unlock),
+            )
+        } else if (!scheduleEnabled && state is TunnelState.Disconnected) {
+            TvButton("Schedule", onOpenSchedule, Modifier.weight(1f), icon = plainIcon(R.drawable.pi_clock))
+        }
+    }
+}
+
+/**
+ * Live values from the service in a quiet strip under the actions: no card, thin dividers,
+ * small labels. Nothing is shown that the service didn't report; the slot keeps its height
+ * so the column doesn't jump when the state changes.
+ */
+@Composable
+private fun StatsStrip(state: TunnelState) {
+    val ticking = state is TunnelState.Connected || state is TunnelState.ScheduledPause
+    val now = rememberNow(1000, enabled = ticking)
+    val traffic by VpnState.traffic.collectAsState()
+    val blocking by VpnState.blocking.collectAsState()
+    val blockedRow = if (blocking) "VPN apps" to "Blocked" else null
+    val cells = when (state) {
+        is TunnelState.Connected -> listOf(
+            "Connected for" to formatDuration(now - state.sinceMillis),
+            "Tunnel IP" to (state.localIp ?: "Unavailable"),
+            "Server IP" to (state.serverIp ?: "Unavailable"),
+            "Traffic" to "↓ ${formatBytes(traffic.bytesIn)}  ↑ ${formatBytes(traffic.bytesOut)}",
+        )
+        is TunnelState.Connecting -> listOfNotNull("Status" to state.stage, blockedRow)
+        is TunnelState.ScheduledPause -> listOfNotNull("Reconnecting in" to formatDuration((state.resumeAtMillis - now).coerceAtLeast(0)), blockedRow)
+        is TunnelState.Disconnected -> listOfNotNull(blockedRow)
+        else -> emptyList()
+    }
+    // A lone cell (connecting, paused) gets a narrower strip so it stays centred under the button.
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxWidth(if (cells.size <= 2) 0.5f * cells.size.coerceAtLeast(1) else 1f).height(IntrinsicSize.Min).heightIn(min = 48.dp),
+    ) {
+        cells.forEachIndexed { i, (label, value) ->
+            if (i > 0) Box(Modifier.width(1.dp).fillMaxHeight().background(Plain.Raised))
+            // Equal cells, so the dividers sit on a grid instead of following the text widths.
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f).padding(horizontal = 6.dp)) {
+                Text(label, style = MaterialTheme.typography.labelMedium, color = Plain.Muted, maxLines = 1)
+                Text(value, style = MaterialTheme.typography.bodyMedium, color = Plain.Text, maxLines = 1)
+            }
+        }
     }
 }
 
@@ -320,51 +385,10 @@ private fun ScheduleChip(schedule: ReconnectSchedule) {
         icon = plainIcon(R.drawable.pi_clock),
         text = next?.let {
             // Weekday + time in the TV's locale, e.g. "Wed 4:00 AM", so the chip stays one line.
-            val pattern = android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), "EEEjmm")
-            "Reconnect ${java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault()).format(Date(it))}"
-        }
-            ?: "Reconnect · no days selected",
+            val pattern = android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "EEEjmm")
+            "Reconnect ${java.text.SimpleDateFormat(pattern, Locale.getDefault()).format(Date(it))}"
+        } ?: "Reconnect · no days selected",
     )
-}
-
-/** Live values from the service, as label/value pairs in a two-column card. Nothing is shown that the service didn't report. */
-@Composable
-private fun ConnectionDetails(state: TunnelState) {
-    val ticking = state is TunnelState.Connected || state is TunnelState.ScheduledPause
-    val now = rememberNow(1000, enabled = ticking)
-    val traffic by VpnState.traffic.collectAsState()
-    val blocking by VpnState.blocking.collectAsState()
-    val blockedRow = if (blocking) "VPN apps" to "Blocked until the VPN is back" else null
-    val rows = when (state) {
-        is TunnelState.Connected -> listOf(
-            "Tunnel IP" to (state.localIp ?: "Unavailable"),
-            "Server IP" to (state.serverIp ?: "Unavailable"),
-            "Connected for" to formatDuration(now - state.sinceMillis),
-            "Traffic" to "↓ ${formatBytes(traffic.bytesIn)}   ↑ ${formatBytes(traffic.bytesOut)}",
-        )
-        is TunnelState.Connecting -> listOfNotNull("Status" to state.stage, blockedRow)
-        is TunnelState.ScheduledPause -> listOfNotNull(
-            "Reconnecting in" to formatDuration((state.resumeAtMillis - now).coerceAtLeast(0)),
-            blockedRow,
-        )
-        is TunnelState.Disconnected -> listOfNotNull(blockedRow?.let { it.first to "Blocked until you reconnect" })
-        else -> emptyList()
-    }
-    if (rows.isEmpty()) return
-    PlainCard(Modifier.fillMaxWidth(), padding = 14.dp) {
-        rows.chunked(2).forEachIndexed { i, pair ->
-            if (i > 0) Spacer(Modifier.height(10.dp))
-            Row {
-                pair.forEach { (label, value) ->
-                    Column(Modifier.weight(1f)) {
-                        Text(label, style = MaterialTheme.typography.bodySmall, color = Plain.Muted)
-                        Text(value, style = MaterialTheme.typography.bodyLarge, color = Plain.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-    }
 }
 
 private fun statusText(state: TunnelState) = when (state) {
@@ -378,11 +402,7 @@ private fun statusText(state: TunnelState) = when (state) {
 private fun statusDetail(state: TunnelState, blocking: Boolean, splitActive: Boolean) = when (state) {
     is TunnelState.Connected -> if (splitActive) "Your chosen apps use the VPN tunnel." else "Your TV's apps use the VPN tunnel."
     is TunnelState.Connecting -> if (blocking) "VPN apps stay offline until it's up." else "Setting up the tunnel."
-    is TunnelState.Disconnected -> when {
-        blocking -> "VPN apps are blocked until you reconnect."
-        state.error != null -> "Check the message above, then try again."
-        else -> "Apps use your normal internet connection."
-    }
+    is TunnelState.Disconnected -> if (blocking) "VPN apps are blocked until you reconnect." else "Apps use your normal internet connection."
     TunnelState.Disconnecting -> "Closing the tunnel."
     is TunnelState.ScheduledPause -> "The scheduled reconnect. Back shortly."
 }
