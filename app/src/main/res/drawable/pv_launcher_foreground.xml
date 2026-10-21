@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- plainVPN design, generated from tunnel-glyph.svg by design-tools/plainvpn_assets.py; do not hand-edit. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108.0dp"
+    android:viewportWidth="1024" android:viewportHeight="1024">
+    <group android:scaleX="0.62" android:scaleY="0.62" android:pivotX="512" android:pivotY="505">
+      <path android:pathData="M512 180C422 243 347 256 277 263V474C277 652 389 766 512 830C635 766 747 652 747 474V263C670 256 595 240 512 180Z">
+          <aapt:attr name="android:fillColor">
+          <gradient android:type="linear" android:startX="277.0" android:startY="180.0" android:endX="747.0" android:endY="830.0">
+            <item android:offset="0" android:color="#FF67D3FF"/>
+            <item android:offset="0.5" android:color="#FF287BFF"/>
+            <item android:offset="1" android:color="#FF623BEE"/>
+          </gradient>
+        </aapt:attr>
+      </path>
+      <path android:pathData="M512 180C422 243 347 256 277 263V474C277 652 389 766 512 830Z">
+          <aapt:attr name="android:fillColor">
+          <gradient android:type="linear" android:startX="277.0" android:startY="180.0" android:endX="512.0" android:endY="830.0">
+            <item android:offset="0" android:color="#FFB4E9FF"/>
+            <item android:offset="1" android:color="#FF3A8EED"/>
+          </gradient>
+        </aapt:attr>
+      </path>
+      <path android:pathData="M512 180V830C451 741 414 623 414 486V239Z" android:fillColor="#FFFFFFFF" android:fillAlpha="0.12"/>
+    </group>
+</vector>

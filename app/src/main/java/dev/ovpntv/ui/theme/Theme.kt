@@ -8,55 +8,57 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.ovpntv.R
 
 /*
- * "plain tunnel" theme, from the Plain Option 6 kit v1.3.0 (tokens/plain.tokens.json,
- * dark theme): pine-teal canvas, cream text, apricot as the single primary accent with
- * pine labels, sage/sky only in illustration. Fredoka 600 for titles, Nunito Sans for
- * everything else. TV focus is a cream inner + apricot outer ring (see Components.kt).
+ * "plainVPN" theme, from the Plain AI Style Kit (tokens/design-tokens.json, dark theme):
+ * near-black blue canvas, subtly raised blue-black panels, white text, one blue accent
+ * with a dark label, Inter throughout. TV focus is a white inner + light-blue outer ring
+ * (see Components.kt), so it never relies on the blue fill alone.
  */
 object Plain {
-    // Printed palette.
-    val Pine = Color(0xFF173D3B)
-    val Cream = Color(0xFFF6F0E3)
-    val Apricot = Color(0xFFEEA36C)
-    val Sage = Color(0xFF94AB89)
-    val Sky = Color(0xFFA9C5CC)
+    // Named palette from the board (illustration and accents).
+    val Blue = Color(0xFF3B82F6)
+    val Violet = Color(0xFF8B5CF6)
+    val Sunset = Color(0xFFF97316)
+    /** The logo's period blue. */
+    val LogoBlue = Color(0xFF1677FF)
 
     // Dark theme semantic tokens.
-    val Canvas = Pine
-    val Surface = Color(0xFF214B48)
-    val Raised = Color(0xFF2B5954)
-    val Text = Cream
-    val Muted = Color(0xFFC0D0C6)
-    val Border = Color(0xFF7F9F94)
-    val Primary = Apricot
-    val OnPrimary = Pine
-    val Focus = Apricot
-    val Success = Color(0xFFA6D6AF)
-    val Danger = Color(0xFFFFB1A8)
-    val OnDanger = Pine
-    val Selected = Color(0xFF315F58)
+    val Canvas = Color(0xFF0B1017)
+    val Surface = Color(0xFF111B25)
+    val Raised = Color(0xFF192431)
+    val Text = Color(0xFFF8FAFC)
+    val Muted = Color(0xFFB0BDCE)
+    val Border = Color(0xFF293746)
+    val Primary = Blue
+    val OnPrimary = Color(0xFF071426)
+    val Selected = Color(0xFF142D48)
+    val Focus = Color(0xFF7DB5FF)
+    // Not in the kit's tokens; chosen for 4.5:1+ on the dark surfaces.
+    val Success = Color(0xFF4ADE80)
+    val Danger = Color(0xFFF87171)
+    val OnDanger = Color(0xFF1A0707)
 
-    /** Motion tokens (ms). */
-    const val QUICK_MS = 120
-    const val STANDARD_MS = 180
-    const val SHEET_MS = 240
+    /** Motion tokens (ms): kit short/normal, plus a slower one for sheets and pose changes. */
+    const val QUICK_MS = 150
+    const val STANDARD_MS = 220
+    const val SHEET_MS = 260
 }
 
-val Fredoka = FontFamily(Font(R.font.fredoka_semibold, FontWeight.SemiBold))
-val NunitoSans = FontFamily(
-    Font(R.font.nunito_sans_regular, FontWeight.Normal),
-    Font(R.font.nunito_sans_semibold, FontWeight.SemiBold),
-    Font(R.font.nunito_sans_bold, FontWeight.Bold),
-)
+@OptIn(ExperimentalTextApi::class)
+private fun inter(weight: Int) = Font(R.font.inter, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
+
+/** Inter variable font, pinned to the four weights the kit uses. */
+val Inter = FontFamily(inter(400), inter(500), inter(600), inter(700))
 
 private val colors = darkColorScheme(
     primary = Plain.Primary,
@@ -83,8 +85,8 @@ private val colors = darkColorScheme(
     surfaceContainer = Plain.Surface,
     surfaceContainerLow = Plain.Surface,
     surfaceContainerLowest = Plain.Canvas,
-    inverseSurface = Plain.Cream,
-    inverseOnSurface = Plain.Pine,
+    inverseSurface = Plain.Text,
+    inverseOnSurface = Plain.Canvas,
     error = Plain.Danger,
     onError = Plain.OnDanger,
     errorContainer = Plain.Danger,
@@ -95,23 +97,26 @@ private val colors = darkColorScheme(
 )
 
 val ColorScheme.positive: Color get() = Plain.Success
-val ColorScheme.warning: Color get() = Plain.Apricot
+val ColorScheme.warning: Color get() = Plain.Sunset
 
-/** Kit TV type scale (display 36/44, title 28/36), with body/label one step smaller so dense lists fit 540dp. */
+private fun style(size: Int, line: Int, weight: Int, tracking: Float = 0f) =
+    TextStyle(fontFamily = Inter, fontWeight = FontWeight(weight), fontSize = size.sp, lineHeight = line.sp, letterSpacing = tracking.sp)
+
+/** Kit scale (display 48/56 … caption 12/16), nudged up a step where it's read from the sofa. */
 private val typography = Typography(
-    displaySmall = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 36.sp, lineHeight = 44.sp),
-    headlineLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 36.sp, lineHeight = 44.sp),
-    headlineMedium = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 36.sp),
-    headlineSmall = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 36.sp),
-    titleLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
-    titleMedium = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.Bold, fontSize = 18.sp, lineHeight = 24.sp),
-    titleSmall = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 22.sp),
-    bodyLarge = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 26.sp),
-    bodyMedium = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
-    bodySmall = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
-    labelLarge = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
-    labelMedium = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
-    labelSmall = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp),
+    displaySmall = style(44, 52, 700, -0.5f),
+    headlineLarge = style(36, 44, 700, -0.4f),
+    headlineMedium = style(30, 38, 600, -0.3f),
+    headlineSmall = style(28, 36, 600, -0.3f),
+    titleLarge = style(22, 28, 600),
+    titleMedium = style(18, 24, 600),
+    titleSmall = style(16, 22, 600),
+    bodyLarge = style(18, 26, 500),
+    bodyMedium = style(16, 24, 400),
+    bodySmall = style(14, 20, 400),
+    labelLarge = style(16, 22, 500),
+    labelMedium = style(14, 20, 500),
+    labelSmall = style(12, 16, 500),
 )
 
 private val shapes = Shapes(
@@ -119,7 +124,7 @@ private val shapes = Shapes(
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp),
     large = RoundedCornerShape(16.dp),
-    extraLarge = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(20.dp),
 )
 
 object Dimens {
@@ -130,20 +135,20 @@ object Dimens {
     val mediumPadding = 16.dp
     val cardPadding = 24.dp
     val largePadding = 32.dp
-    /** TV safe margin (kit: 48dp). The vertical one is trimmed so Home fits a 540dp screen. */
+    /** TV safe margin. The vertical one is trimmed so Home fits a 540dp screen. */
     val screenHorizontal = 48.dp
     val screenVertical = 32.dp
     val controlShape = RoundedCornerShape(12.dp)
     val cardShape = RoundedCornerShape(16.dp)
     val chipShape = controlShape
-    /** Kit TV focus: 3dp cream inner ring, 3dp gap, 3dp apricot outer ring. */
+    /** TV focus: 3dp white inner ring, 3dp gap, 3dp light-blue outer ring. */
     val focusRing = 3.dp
     val focusGap = 3.dp
     /** How far the outer focus ring reaches past a control; clipping parents pad by this. */
     val focusOutset = 6.dp
 }
 
-/** androidx.tv components (the navigation drawer) read their own theme, so mirror the palette there. */
+/** androidx.tv components read their own theme, so mirror the palette there. */
 private val tvColors = androidx.tv.material3.darkColorScheme(
     primary = Plain.Primary,
     onPrimary = Plain.OnPrimary,
@@ -153,15 +158,15 @@ private val tvColors = androidx.tv.material3.darkColorScheme(
     onSurface = Plain.Text,
     surfaceVariant = Plain.Surface,
     onSurfaceVariant = Plain.Text,
-    inverseSurface = Plain.Cream,
-    inverseOnSurface = Plain.Pine,
+    inverseSurface = Plain.Text,
+    inverseOnSurface = Plain.Canvas,
     border = Plain.Focus,
 )
 
 private val tvTypography = androidx.tv.material3.Typography(
-    titleMedium = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp),
-    labelLarge = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
-    bodyLarge = TextStyle(fontFamily = NunitoSans, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
+    titleMedium = style(20, 26, 600),
+    labelLarge = style(16, 22, 500),
+    bodyLarge = style(16, 22, 500),
 )
 
 @Composable

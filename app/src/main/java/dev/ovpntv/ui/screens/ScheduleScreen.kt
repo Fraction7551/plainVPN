@@ -179,13 +179,13 @@ private fun NumberStepper(value: Int, range: IntRange, step: Int = 1, onChange: 
     if (!focused && editing) editing = false
     val size = range.last - range.first + 1
     fun shift(by: Int) = onChange(((value - range.first + by) % size + size) % size + range.first)
-    // Editing turns the number apricot, so it reads as "live" without relying on the arrows alone.
+    // Editing turns the number blue, so it reads as "live" without relying on the arrows alone.
     val bg = when {
-        editing -> Plain.Apricot
+        editing -> Plain.Primary
         focused -> Plain.Raised
         else -> Plain.Surface
     }
-    val arrowTint = if (editing) Plain.Apricot else Plain.Muted.copy(alpha = if (focused) 1f else 0.3f)
+    val arrowTint = if (editing) Plain.Primary else Plain.Muted.copy(alpha = if (focused) 1f else 0.3f)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.KeyboardArrowUp, null, tint = arrowTint)
         Box(
@@ -205,7 +205,7 @@ private fun NumberStepper(value: Int, range: IntRange, step: Int = 1, onChange: 
                 }
                 .clickable(interactionSource = interaction, indication = null) { editing = !editing },
         ) {
-            Text("%02d".format(value), style = MaterialTheme.typography.displaySmall, fontSize = 48.sp, color = if (editing) Plain.Pine else Plain.Text)
+            Text("%02d".format(value), style = MaterialTheme.typography.displaySmall, fontSize = 48.sp, color = if (editing) Plain.OnPrimary else Plain.Text)
         }
         Icon(Icons.Rounded.KeyboardArrowDown, null, tint = arrowTint)
     }

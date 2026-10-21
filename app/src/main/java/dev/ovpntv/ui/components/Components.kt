@@ -45,17 +45,21 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import dev.ovpntv.R
 import dev.ovpntv.ui.theme.Dimens
 import dev.ovpntv.ui.theme.Plain
 
-/** A Plain kit UI icon (res/drawable/pi_*.xml, generated from assets/ui-icons). */
+/** A UI icon (res/drawable/pi_*.xml: 24dp, 1.8 stroke; see design-tools). */
 @Composable
 fun plainIcon(@DrawableRes id: Int): ImageVector = ImageVector.vectorResource(id)
 
 /**
- * The kit's TV focus indicator: a 3dp cream ring just inside the control and a 3dp
- * apricot ring outside it with a 3dp gap, so focus never depends on colour alone.
+ * TV focus indicator: a 3dp white ring just inside the control and a 3dp
+ * light-blue ring outside it with a 3dp gap, so focus never depends on colour alone.
  * It draws outside the bounds, so scrolling parents need [Dimens.focusOutset] padding.
  */
 fun Modifier.focusRing(focused: Boolean, radius: Dp = 12.dp): Modifier = drawWithContent {
@@ -65,7 +69,7 @@ fun Modifier.focusRing(focused: Boolean, radius: Dp = 12.dp): Modifier = drawWit
     val gap = Dimens.focusGap.toPx()
     val r = radius.toPx()
     drawRoundRect(
-        color = Plain.Cream,
+        color = Plain.Text,
         topLeft = Offset(ring / 2, ring / 2),
         size = Size(size.width - ring, size.height - ring),
         cornerRadius = CornerRadius(r - ring / 2),
@@ -81,9 +85,27 @@ fun Modifier.focusRing(focused: Boolean, radius: Dp = 12.dp): Modifier = drawWit
     )
 }
 
+/**
+ * The app's name: the kit's outlined "plain." wordmark (never typeset) followed by "VPN"
+ * in Inter, sized so the product name sits on the wordmark's baseline.
+ */
+@Composable
+fun PlainVpnLogo(height: Dp, modifier: Modifier = Modifier) {
+    Row(verticalAlignment = Alignment.Bottom, modifier = modifier.semantics(mergeDescendants = true) { contentDescription = "plainVPN" }) {
+        Image(painterResource(R.drawable.pv_wordmark), contentDescription = null, modifier = Modifier.height(height))
+        Text(
+            "VPN",
+            style = MaterialTheme.typography.titleMedium.copy(fontSize = (height.value * 0.42f).sp, lineHeight = (height.value * 0.42f).sp),
+            color = Plain.Muted,
+            // The wordmark's artboard has room below the baseline (descender of the p); lift to match.
+            modifier = Modifier.padding(start = (height.value * 0.08f).dp, bottom = (height.value * 0.2f).dp),
+        )
+    }
+}
+
 enum class ButtonStyle { Primary, Secondary, Destructive }
 
-/** Kit button: 48dp tall, 12dp corners. Primary is apricot with a pine label; secondary is a bordered surface. */
+/** Kit button: 48dp tall, 12dp corners. Primary is blue with a dark label; secondary is a bordered surface. */
 @Composable
 fun TvButton(
     text: String,
@@ -130,15 +152,15 @@ fun PositiveButton(text: String, onClick: () -> Unit, modifier: Modifier = Modif
 fun NegativeButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null) =
     TvButton(text, onClick, modifier, style = ButtonStyle.Destructive, icon = icon)
 
-/** Apricot check badge the kit uses for the current selection (shape + colour, not colour alone). */
+/** Blue check badge for the current selection (shape + colour, not colour alone). */
 @Composable
 fun SelectedBadge(modifier: Modifier = Modifier) {
-    Box(contentAlignment = Alignment.Center, modifier = modifier.size(28.dp).background(Plain.Apricot, CircleShape)) {
-        Icon(plainIcon(R.drawable.pi_check), contentDescription = "Selected", tint = Plain.Pine, modifier = Modifier.size(18.dp))
+    Box(contentAlignment = Alignment.Center, modifier = modifier.size(28.dp).background(Plain.Primary, CircleShape)) {
+        Icon(plainIcon(R.drawable.pi_check), contentDescription = "Selected", tint = Plain.OnPrimary, modifier = Modifier.size(18.dp))
     }
 }
 
-/** List row on a surface card: 56/72dp tall, cream title, muted subtitle, optional trailing content. */
+/** List row on a surface card: 56/72dp tall, white title, muted subtitle, optional trailing content. */
 @Composable
 fun ListCell(
     title: String,
@@ -184,7 +206,7 @@ fun ListCell(
     }
 }
 
-/** Cell with the kit's switch (apricot track when on). */
+/** Cell with a switch (blue track when on). */
 @Composable
 fun SwitchCell(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, subtitle: String? = null, modifier: Modifier = Modifier) {
     ListCell(
@@ -200,20 +222,20 @@ fun SwitchCell(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Un
 @Composable
 fun PlainSwitch(checked: Boolean) {
     val offset by animateFloatAsState(if (checked) 1f else 0f, tween(Plain.STANDARD_MS), label = "switch")
-    val track by animateColorAsState(if (checked) Plain.Apricot else Color.Transparent, tween(Plain.STANDARD_MS), label = "track")
+    val track by animateColorAsState(if (checked) Plain.Primary else Color.Transparent, tween(Plain.STANDARD_MS), label = "track")
     Box(
         Modifier
             .width(52.dp)
             .height(30.dp)
             .background(track, CircleShape)
-            .border(2.dp, if (checked) Plain.Apricot else Plain.Border, CircleShape)
+            .border(2.dp, if (checked) Plain.Primary else Plain.Border, CircleShape)
             .padding(4.dp),
     ) {
         Box(
             Modifier
                 .offset(x = (22 * offset).dp)
                 .size(22.dp)
-                .background(if (checked) Plain.Cream else Plain.Muted, CircleShape),
+                .background(if (checked) Plain.Text else Plain.Muted, CircleShape),
         )
     }
 }
@@ -233,13 +255,13 @@ fun ScreenTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, style = MaterialTheme.typography.headlineSmall, color = Plain.Text, modifier = modifier.padding(bottom = Dimens.mediumPadding))
 }
 
-/** Selectable option. Selected = apricot with a check mark, so the state isn't colour-only. */
+/** Selectable option. Selected = blue with a check mark, so the state isn't colour-only. */
 @Composable
 fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val bg = when {
-        selected -> Plain.Apricot
+        selected -> Plain.Primary
         focused -> Plain.Raised
         else -> Plain.Surface
     }
@@ -254,7 +276,7 @@ fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = Dimens.mediumPadding, vertical = Dimens.smallPadding),
     ) {
-        val fg = if (selected) Plain.Pine else Plain.Text
+        val fg = if (selected) Plain.OnPrimary else Plain.Text
         if (selected) Icon(plainIcon(R.drawable.pi_check), contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
         Text(text, style = MaterialTheme.typography.labelLarge, color = fg)
     }
@@ -293,7 +315,7 @@ fun PlainCard(modifier: Modifier = Modifier, padding: Dp = Dimens.mediumPadding,
 fun UpdateBanner(title: String, detail: String?, action: String?, onAction: () -> Unit, modifier: Modifier = Modifier) {
     PlainCard(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(plainIcon(R.drawable.pi_refresh), contentDescription = null, tint = Plain.Apricot, modifier = Modifier.size(24.dp))
+            Icon(plainIcon(R.drawable.pi_refresh), contentDescription = null, tint = Plain.Primary, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = Plain.Text)

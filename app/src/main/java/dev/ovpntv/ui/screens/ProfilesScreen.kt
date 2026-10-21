@@ -284,7 +284,7 @@ private fun LanImportDialog(onDismiss: () -> Unit) {
                     }
                     Spacer(Modifier.height(Dimens.smallPadding))
                     Text("PIN", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(server.pin, style = MaterialTheme.typography.headlineLarge, color = Plain.Apricot)
+                    Text(server.pin, style = MaterialTheme.typography.headlineLarge, color = Plain.Primary)
                     Text("Uploading works only while this window is open.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     lastResult?.let { Text(it, style = MaterialTheme.typography.titleMedium, color = if (it.startsWith("✓")) Plain.Success else MaterialTheme.colorScheme.error) }
                 }

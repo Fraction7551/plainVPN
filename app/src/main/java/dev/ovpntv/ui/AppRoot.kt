@@ -58,7 +58,9 @@ import dev.ovpntv.ui.screens.ScheduleScreen
 import dev.ovpntv.ui.screens.SettingsScreen
 import dev.ovpntv.ui.screens.SplitTunnelScreen
 import dev.ovpntv.ui.theme.Dimens
+import dev.ovpntv.ui.components.PlainVpnLogo
 import dev.ovpntv.ui.components.plainIcon
+import androidx.compose.foundation.shape.RoundedCornerShape
 import dev.ovpntv.ui.theme.Plain
 
 /** Width of the collapsed drawer rail (56dp items + 12dp padding each side). */
@@ -76,7 +78,7 @@ enum class Destination(val label: String, @DrawableRes val icon: Int) {
 }
 
 /**
- * Left-hand navigation: a collapsed icon rail that expands into the kit's sidebar
+ * Left-hand navigation: a collapsed icon rail that expands into a sidebar
  * (wordmark, icon + label items, current item on the selected tint) when it takes focus.
  */
 @OptIn(ExperimentalComposeUiApi::class)
@@ -166,18 +168,14 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
 
 @Composable
 private fun NavigationDrawerScope.DrawerHeader() {
-    // Collapsed: the product pictogram. Expanded: the plain tunnel wordmark (never typeset).
+    // Collapsed: the kit's p. monogram. Expanded: the plainVPN wordmark lockup.
     if (hasFocus) {
-        Image(
-            painterResource(R.drawable.plain_tunnel_wordmark),
-            contentDescription = "plain tunnel",
-            modifier = Modifier.padding(start = 16.dp).height(36.dp),
-        )
+        PlainVpnLogo(34.dp, Modifier.padding(start = 16.dp))
     } else {
         Image(
-            painterResource(R.drawable.plain_tunnel_foreground),
-            contentDescription = "plain tunnel",
-            modifier = Modifier.padding(start = 4.dp).size(48.dp),
+            painterResource(R.drawable.pv_monogram),
+            contentDescription = "plainVPN",
+            modifier = Modifier.padding(start = 4.dp).size(48.dp).clip(RoundedCornerShape(12.dp)),
         )
     }
 }
@@ -185,7 +183,7 @@ private fun NavigationDrawerScope.DrawerHeader() {
 /**
  * Drawer entry. Our own rather than tv-material's NavigationDrawerItem, whose expanded
  * width is fixed at 256dp: this one expands just enough for the longest label.
- * Focused = apricot pill, current screen = selected tint, so the two never look the same.
+ * Focused = blue pill, current screen = selected tint, so the two never look the same.
  */
 @Composable
 private fun NavigationDrawerScope.DrawerItem(destination: Destination, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
@@ -193,12 +191,12 @@ private fun NavigationDrawerScope.DrawerItem(destination: Destination, selected:
     val focused by interaction.collectIsFocusedAsState()
     val width by animateDpAsState(if (hasFocus) ExpandedItemWidth else CollapsedItemWidth, tween(Plain.STANDARD_MS), label = "drawerItem")
     val container = when {
-        focused -> Plain.Apricot
+        focused -> Plain.Primary
         selected -> Plain.Selected
         else -> Color.Transparent
     }
     val content = when {
-        focused -> Plain.Pine
+        focused -> Plain.OnPrimary
         selected || hasFocus -> Plain.Text
         else -> Plain.Muted
     }

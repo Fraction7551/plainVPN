@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- plainVPN design, generated from pv_tile.svg by design-tools/plainvpn_assets.py; do not hand-edit. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108.0dp"
+    android:viewportWidth="1024" android:viewportHeight="1024">
+    <path android:pathData="M0,0H1024V1024H0Z">
+        <aapt:attr name="android:fillColor">
+          <gradient android:type="linear" android:startX="0.0" android:startY="0.0" android:endX="307.2" android:endY="1024.0">
+            <item android:offset="0" android:color="#FF263341"/>
+            <item android:offset="1" android:color="#FF080E15"/>
+          </gradient>
+        </aapt:attr>
+    </path>
+</vector>

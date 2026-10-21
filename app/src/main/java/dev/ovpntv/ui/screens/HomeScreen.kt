@@ -59,7 +59,8 @@ import dev.ovpntv.ui.ContentStart
 import dev.ovpntv.ui.RailWidth
 import dev.ovpntv.ui.components.ButtonStyle
 import dev.ovpntv.ui.components.FeatureChip
-import dev.ovpntv.ui.components.PerchScene
+import dev.ovpntv.ui.components.NightScene
+import dev.ovpntv.ui.components.PlainVpnLogo
 import dev.ovpntv.ui.components.TvButton
 import dev.ovpntv.ui.components.UpdateBanner
 import dev.ovpntv.ui.components.focusRing
@@ -75,17 +76,16 @@ import java.util.Date
 import java.util.Locale
 
 /*
- * Connection screen. One centred axis, read top to bottom in the order of the kit's
- * plain tunnel spec (and of most VPN apps): what state am I in, through which profile,
- * what can I do about it, then the numbers.
+ * Connection screen. One centred axis, read top to bottom in the order most VPN apps
+ * use: what state am I in, through which profile, what can I do about it, then the numbers.
  *
- *   top bar      wordmark                                  feature chips
- *   centre       [lock] Connected.
+ *   top bar      plainVPN logo                             feature chips
+ *   centre       [shield] Connected.
  *                one line of plain explanation
  *                profile card
  *                primary action (+ one secondary when relevant)
  *                quiet stats strip (only values the service reported)
- *   ground       kit hills, small arch on the right, the bird (PerchScene)
+ *   ground       night ridges and lake; the moon rises when connected (NightScene)
  */
 
 private val ColumnWidth = 520.dp
@@ -109,7 +109,7 @@ fun HomeScreen(
     LaunchedEffect(Unit) { runCatching { primaryFocus.requestFocus() } }
 
     Box(Modifier.fillMaxSize()) {
-        PerchScene(state, archCenter = 0.9f)
+        NightScene(state)
 
         Column(Modifier.fillMaxSize().padding(start = ContentStart - RailWidth, end = Dimens.screenHorizontal, top = 28.dp)) {
             TopBar(schedule, split)
@@ -139,7 +139,7 @@ fun HomeScreen(
 @Composable
 private fun TopBar(schedule: ReconnectSchedule, split: dev.ovpntv.data.SplitTunnel) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(40.dp)) {
-        Image(painterResource(R.drawable.plain_tunnel_wordmark), contentDescription = "plain tunnel", modifier = Modifier.height(34.dp))
+        PlainVpnLogo(36.dp)
         Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
             if (split.isActive) {
@@ -163,10 +163,11 @@ private fun Status(state: TunnelState, blocking: Boolean, splitActive: Boolean) 
     val connected = state is TunnelState.Connected
     val busy = state is TunnelState.Connecting || state is TunnelState.Disconnecting
     val failed = (state as? TunnelState.Disconnected)?.error
+    // One circle with one symbol throughout; only its fill changes with the state.
     val circle by animateColorAsState(
         when {
-            connected -> Plain.Sage
             failed != null -> Plain.Danger
+            connected -> Plain.Primary
             else -> Plain.Raised
         },
         tween(Plain.SHEET_MS), label = "statusCircle",
@@ -176,20 +177,18 @@ private fun Status(state: TunnelState, blocking: Boolean, splitActive: Boolean) 
         modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(56.dp)) {
-                Box(Modifier.size(56.dp).background(circle, CircleShape))
-                if (busy) CircularProgressIndicator(color = Plain.Apricot, strokeWidth = 3.dp, trackColor = Plain.Raised, modifier = Modifier.size(56.dp))
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(64.dp)) {
+                Box(Modifier.size(64.dp).background(circle, CircleShape))
+                if (busy) CircularProgressIndicator(color = Plain.Primary, strokeWidth = 3.dp, trackColor = Plain.Raised, modifier = Modifier.size(64.dp))
                 Icon(
-                    plainIcon(
-                        when {
-                            failed != null -> R.drawable.pi_warning
-                            connected || busy || state is TunnelState.ScheduledPause -> R.drawable.pi_lock
-                            else -> R.drawable.pi_unlock
-                        },
-                    ),
+                    plainIcon(if (failed != null) R.drawable.pi_warning else R.drawable.pi_shield),
                     contentDescription = null,
-                    tint = if (connected || failed != null) Plain.Pine else Plain.Cream,
-                    modifier = Modifier.size(28.dp),
+                    tint = when {
+                        failed != null -> Plain.OnDanger
+                        connected -> Plain.OnPrimary
+                        else -> Plain.Muted
+                    },
+                    modifier = Modifier.size(30.dp),
                 )
             }
             Spacer(Modifier.width(16.dp))
@@ -238,7 +237,7 @@ private fun ProfileCard(state: TunnelState, selected: Profile?, hasProfiles: Boo
             .padding(horizontal = Dimens.mediumPadding, vertical = 10.dp),
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(40.dp).background(Plain.Canvas, CircleShape)) {
-            Icon(plainIcon(R.drawable.pi_location), contentDescription = null, tint = Plain.Apricot, modifier = Modifier.size(22.dp))
+            Icon(plainIcon(R.drawable.pi_location), contentDescription = null, tint = Plain.Primary, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -353,7 +352,7 @@ private fun AppUpdateBanner(modifier: Modifier) {
         is UpdateState.Installing -> Triple("Installing update ${s.info.versionName}…", "The app restarts when it's done. The VPN reconnects by itself.", null)
         is UpdateState.NeedsPermission -> Triple(
             "Allow updates",
-            "Find plain tunnel in the list, switch it on, then press Back. The update continues by itself.",
+            "Find plainVPN in the list, switch it on, then press Back. The update continues by itself.",
             "Install update",
         )
         is UpdateState.Failed -> if (s.info != null) Triple("Update ${s.info.versionName} didn't install", s.message, "Try again") else return

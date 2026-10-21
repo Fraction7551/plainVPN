@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- plainVPN design, generated from pv_ground.svg by design-tools/plainvpn_assets.py; do not hand-edit. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="800dp" android:height="110.0dp"
+    android:viewportWidth="1600" android:viewportHeight="220">
+    <path android:pathData="M0 120L90 92L170 108L260 60L330 84L420 46L500 80L600 66L690 98L780 70L880 34L960 70L1040 58L1140 90L1230 52L1320 78L1400 40L1480 72L1600 54V170H0Z">
+        <aapt:attr name="android:fillColor">
+          <gradient android:type="linear" android:startX="0.0" android:startY="34.0" android:endX="0.0" android:endY="170.0">
+            <item android:offset="0" android:color="#FF2B3C5C"/>
+            <item android:offset="1" android:color="#FF162236"/>
+          </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M0 150L120 118L210 132L320 104L430 128L540 112L650 136L760 116L880 130L990 106L1100 128L1210 112L1320 132L1430 110L1600 126V172H0Z">
+        <aapt:attr name="android:fillColor">
+          <gradient android:type="linear" android:startX="0.0" android:startY="104.0" android:endX="0.0" android:endY="172.0">
+            <item android:offset="0" android:color="#FF1A2A44"/>
+            <item android:offset="1" android:color="#FF101A29"/>
+          </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M0 168H1600V220H0Z">
+        <aapt:attr name="android:fillColor">
+          <gradient android:type="linear" android:startX="0.0" android:startY="168.0" android:endX="0.0" android:endY="220.0">
+            <item android:offset="0" android:color="#FF16264A"/>
+            <item android:offset="1" android:color="#FF0B1017"/>
+          </gradient>
+        </aapt:attr>
+    </path>
+    <group android:translateX="0" android:translateY="338">
+      <group android:scaleX="1" android:scaleY="-1">
+        <path android:pathData="M0 120L90 92L170 108L260 60L330 84L420 46L500 80L600 66L690 98L780 70L880 34L960 70L1040 58L1140 90L1230 52L1320 78L1400 40L1480 72L1600 54V170H0Z" android:fillColor="#FF2B3C5C" android:fillAlpha="0.22"/>
+      </group>
+    </group>
+    <path android:pathData="M0 168H1600V169.5H0Z" android:fillColor="#FF3B5A86" android:fillAlpha="0.7"/>
+    <path android:pathData="M-28 172L-10 120L8 172ZM-9 172L11 113L32 172ZM9 172L33 99L58 172ZM36 172L50 131L63 172ZM56 172L74 119L92 172ZM61 172L92 80L123 172ZM84 172L113 89L141 172ZM108 172L133 99L158 172ZM126 172L150 99L175 172ZM153 172L175 105L198 172ZM173 172L199 97L224 172ZM188 172L215 93L242 172ZM218 172L237 116L256 172ZM224 172L253 87L282 172ZM247 172L273 95L300 172ZM272 172L298 95L325 172ZM303 172L324 111L344 172ZM1271 172L1290 115L1309 172ZM1282 172L1307 98L1332 172ZM1300 172L1323 104L1346 172ZM1328 172L1343 129L1357 172ZM1349 172L1364 130L1378 172ZM1369 172L1384 128L1399 172ZM1379 172L1400 110L1421 172ZM1409 172L1425 126L1441 172ZM1418 172L1443 99L1467 172ZM1445 172L1468 102L1492 172ZM1457 172L1488 81L1519 172ZM1475 172L1504 87L1533 172ZM1507 172L1523 124L1539 172ZM1520 172L1539 116L1558 172ZM1547 172L1564 123L1581 172ZM1561 172L1586 99L1610 172ZM1582 172L1605 104L1628 172Z" android:fillColor="#FF06090E"/>
+    <path android:pathData="M0 172H340L300 180H0ZM1600 172H1280L1320 180H1600Z" android:fillColor="#FF06090E"/>
+</vector>

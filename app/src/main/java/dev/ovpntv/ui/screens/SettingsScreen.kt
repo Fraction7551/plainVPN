@@ -60,7 +60,7 @@ fun SettingsScreen() {
                     is UpdateState.Available -> "Version ${s.info.versionName} is available"
                     is UpdateState.Downloading -> "Downloading ${s.info.versionName}... ${s.percent}%"
                     is UpdateState.Installing -> "Installing ${s.info.versionName}..."
-                    is UpdateState.NeedsPermission -> "Allow plain tunnel to install apps, then press here again"
+                    is UpdateState.NeedsPermission -> "Allow plainVPN to install apps, then press here again"
                     is UpdateState.Failed -> s.message
                 },
                 onClick = {
@@ -94,7 +94,7 @@ fun SettingsScreen() {
                 }
             }
             Text(
-                "OpenVPN® is a registered trademark of OpenVPN Inc. plain tunnel is not affiliated with OpenVPN Inc.",
+                "OpenVPN® is a registered trademark of OpenVPN Inc. plainVPN is not affiliated with OpenVPN Inc.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

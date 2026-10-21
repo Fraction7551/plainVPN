@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Generated from Plain kit v1.3.0 check.svg; do not hand-edit. -->
+<!-- plainVPN design, generated from check.svg by design-tools/plainvpn_assets.py; do not hand-edit. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="24dp" android:height="24.0dp"
     android:viewportWidth="24" android:viewportHeight="24">
-    <path android:pathData="M4 12l5 5L20 6" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="m4 12 5 5L20 6" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round"/>
 </vector>

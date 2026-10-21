@@ -15,8 +15,8 @@ android {
         applicationId = "dev.ovpntv"
         minSdk = 24
         targetSdk = 35
-        versionCode = 13
-        versionName = "1.4.0 (OpenVPN 2.7.8)"
+        versionCode = 18
+        versionName = "1.5.0 (OpenVPN 2.7.8)"
 
         ndk {
             // armeabi-v7a/arm64-v8a cover real TV boxes; x86/x86_64 cover the emulator.

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Generated from Plain kit v1.3.0 arch-bird-16x9.svg; do not hand-edit. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="100dp" android:height="162.0dp"
-    android:viewportWidth="250" android:viewportHeight="405">
-    <group android:translateX="-1150" android:translateY="-485">
-        <path android:pathData="M1150 890V610a125 125 0 0 1 250 0v280h-70V610a55 55 0 0 0-110 0v280Z" android:fillColor="#FFEEA36C"/>
-    </group>
-</vector>

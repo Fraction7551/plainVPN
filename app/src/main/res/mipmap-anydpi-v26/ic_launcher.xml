@@ -1,1 +1,1 @@
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@drawable/plain_tunnel_background"/><foreground android:drawable="@drawable/plain_tunnel_foreground"/></adaptive-icon>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@drawable/pv_launcher_background"/><foreground android:drawable="@drawable/pv_launcher_foreground"/></adaptive-icon>
