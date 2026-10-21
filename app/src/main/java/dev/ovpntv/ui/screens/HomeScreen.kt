@@ -315,8 +315,8 @@ private fun StatsStrip(state: TunnelState) {
     val cells = when (state) {
         is TunnelState.Connected -> listOf(
             "Connected for" to formatDuration(now - state.sinceMillis),
+            // No server IP here: the profile card right above already shows the server.
             "Tunnel IP" to (state.localIp ?: "Unavailable"),
-            "Server IP" to (state.serverIp ?: "Unavailable"),
             "Traffic" to "↓ ${formatBytes(traffic.bytesIn)}  ↑ ${formatBytes(traffic.bytesOut)}",
         )
         is TunnelState.Connecting -> listOfNotNull("Status" to state.stage, blockedRow)
