@@ -61,6 +61,25 @@ private const val BIRD_SCALE = 0.55f * 1.35f // a touch bigger than the artwork 
 private const val FEET_X_MIRRORED = (240f - 133f) / 240f
 private const val FEET_Y = 197f / 200f
 
+/** Feet centre x within the unmirrored bird master. */
+private const val FEET_X = 133f / 240f
+/** Where the concerned bird stands, as a fraction of the width: near the top of the green hill. */
+private const val CONCERNED_AT = 0.3f
+
+/**
+ * Top of the sage hill at [f] (fraction of the band width), as a fraction of the band height.
+ * The hill's first segment is the kit curve M0 780 Q350 530 800 800 in the 1600-wide artwork,
+ * and the band shows y 640..900 of it.
+ */
+private fun sageHillTop(f: Float): Float {
+    val x = (1600f * f).coerceAtMost(800f)
+    // x(t) = 700t + 100t² on this segment; solve for t, then evaluate y(t).
+    val t = (-700f + kotlin.math.sqrt(700f * 700f + 400f * x)) / 200f
+    val u = 1f - t
+    val y = 780f * u * u + 2f * 530f * u * t + 800f * t * t
+    return (y - 640f) / 260f
+}
+
 private enum class Phase { Away, Arriving, Perched, Leaving }
 
 /** [archCenter] is the arch's horizontal centre as a fraction of the width. */
@@ -131,8 +150,11 @@ fun PerchScene(state: TunnelState, modifier: Modifier = Modifier, archCenter: Fl
             visible = error && phase == Phase.Away,
             enter = fadeIn(tween(Plain.SHEET_MS)),
             exit = fadeOut(tween(Plain.STANDARD_MS)),
-            // Standing on the ground just left of the arch.
-            modifier = Modifier.offset(x = archLeft - birdW * 1.05f, y = h - GroundHeight * 0.45f - birdH * FEET_Y),
+            // On the green hill (the blue one reads as water), looking across at the empty arch.
+            modifier = Modifier.offset(
+                x = w * CONCERNED_AT - birdW * FEET_X,
+                y = h - GroundHeight + GroundHeight * sageHillTop(CONCERNED_AT) - birdH * FEET_Y,
+            ),
         ) {
             Bird(R.drawable.bird_concerned, birdW, birdH, mirrored = false)
         }

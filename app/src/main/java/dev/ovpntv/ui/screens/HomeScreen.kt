@@ -56,6 +56,7 @@ import dev.ovpntv.data.Settings
 import dev.ovpntv.data.SplitMode
 import dev.ovpntv.schedule.ReconnectScheduler
 import dev.ovpntv.ui.ContentStart
+import dev.ovpntv.ui.RailWidth
 import dev.ovpntv.ui.components.ButtonStyle
 import dev.ovpntv.ui.components.FeatureChip
 import dev.ovpntv.ui.components.PerchScene
@@ -110,7 +111,7 @@ fun HomeScreen(
     Box(Modifier.fillMaxSize()) {
         PerchScene(state, archCenter = 0.9f)
 
-        Column(Modifier.fillMaxSize().padding(start = ContentStart, end = Dimens.screenHorizontal, top = 28.dp)) {
+        Column(Modifier.fillMaxSize().padding(start = ContentStart - RailWidth, end = Dimens.screenHorizontal, top = 28.dp)) {
             TopBar(schedule, split)
 
             Column(

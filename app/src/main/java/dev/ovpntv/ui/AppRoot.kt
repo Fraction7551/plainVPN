@@ -13,10 +13,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,13 +43,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.DrawerValue
 import androidx.tv.material3.Icon
 import androidx.tv.material3.ModalNavigationDrawer
-import androidx.tv.material3.NavigationDrawerItem
-import androidx.tv.material3.NavigationDrawerItemDefaults
 import androidx.tv.material3.NavigationDrawerScope
 import androidx.tv.material3.Text
 import androidx.tv.material3.rememberDrawerState
@@ -55,7 +61,9 @@ import dev.ovpntv.ui.theme.Dimens
 import dev.ovpntv.ui.components.plainIcon
 import dev.ovpntv.ui.theme.Plain
 
-/** Content starts right of the collapsed drawer rail. */
+/** Width of the collapsed drawer rail (56dp items + 12dp padding each side). */
+val RailWidth = 80.dp
+/** Content starts a little right of the rail. */
 val ContentStart = 104.dp
 
 enum class Destination(val label: String, @DrawableRes val icon: Int) {
@@ -126,9 +134,11 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                // Home's ground artwork runs edge to edge under the rail, so it pads itself.
+                // Home's ground artwork runs to the right and bottom edges, so it pads itself. Its
+                // left edge still stops at the rail: if this box overlapped the drawer, D-pad right
+                // from the drawer wouldn't count it as being to the right and focus couldn't return.
                 .padding(
-                    start = if (destination == Destination.Home) 0.dp else ContentStart,
+                    start = if (destination == Destination.Home) RailWidth else ContentStart,
                     end = if (destination == Destination.Home) 0.dp else Dimens.screenHorizontal,
                     top = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
                     bottom = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
@@ -172,26 +182,44 @@ private fun NavigationDrawerScope.DrawerHeader() {
     }
 }
 
+/**
+ * Drawer entry. Our own rather than tv-material's NavigationDrawerItem, whose expanded
+ * width is fixed at 256dp: this one expands just enough for the longest label.
+ * Focused = apricot pill, current screen = selected tint, so the two never look the same.
+ */
 @Composable
 private fun NavigationDrawerScope.DrawerItem(destination: Destination, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    NavigationDrawerItem(
-        selected = selected,
-        onClick = onClick,
-        modifier = modifier,
-        leadingContent = { Icon(plainIcon(destination.icon), contentDescription = null) },
-        colors = NavigationDrawerItemDefaults.colors(
-            contentColor = Plain.Text,
-            inactiveContentColor = Plain.Muted,
-            focusedContainerColor = Plain.Apricot,
-            focusedContentColor = Plain.Pine,
-            selectedContainerColor = Plain.Selected,
-            selectedContentColor = Plain.Text,
-            focusedSelectedContainerColor = Plain.Apricot,
-            focusedSelectedContentColor = Plain.Pine,
-            pressedContainerColor = Plain.Apricot,
-            pressedContentColor = Plain.Pine,
-        ),
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val width by animateDpAsState(if (hasFocus) ExpandedItemWidth else CollapsedItemWidth, tween(Plain.STANDARD_MS), label = "drawerItem")
+    val container = when {
+        focused -> Plain.Apricot
+        selected -> Plain.Selected
+        else -> Color.Transparent
+    }
+    val content = when {
+        focused -> Plain.Pine
+        selected || hasFocus -> Plain.Text
+        else -> Plain.Muted
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .width(width)
+            .height(CollapsedItemWidth)
+            .clip(CircleShape)
+            .background(container)
+            .selectable(selected = selected, interactionSource = interaction, indication = null, role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 16.dp),
     ) {
-        Text(destination.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Clip)
+        Icon(plainIcon(destination.icon), contentDescription = null, tint = content, modifier = Modifier.size(24.dp))
+        if (hasFocus) {
+            Spacer(Modifier.width(16.dp))
+            Text(destination.label, style = MaterialTheme.typography.titleMedium, color = content, maxLines = 1, softWrap = false)
+        }
     }
 }
+
+private val CollapsedItemWidth = 56.dp
+/** Fits "Split tunneling" with a little room; the stock drawer item was 256dp. */
+private val ExpandedItemWidth = 212.dp
