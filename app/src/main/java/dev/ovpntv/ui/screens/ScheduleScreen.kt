@@ -11,8 +11,6 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -62,7 +60,6 @@ import java.util.Date
 private val DAY_LABELS = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 private val OFFLINE_OPTIONS = listOf(5, 10, 30, 60, 300, 900, 1800, 3600)
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ScheduleScreen() {
     val context = LocalContext.current
@@ -115,18 +112,16 @@ fun ScheduleScreen() {
                     )
                 }
 
+                // Fixed rows of fixed-width chips: selecting one only changes its colour,
+                // nothing reflows (Mon-Thu / Fri-Sun, then 4 + 4 durations).
                 SectionHeader("Days")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
-                    DAY_LABELS.forEachIndexed { i, label ->
-                        TvChip(label, schedule.runsOn(i), { update(schedule.copy(days = schedule.days xor (1 shl i))) }, compact = true)
-                    }
+                ChipRows(DAY_LABELS.indices.toList(), perRow = 4) { i ->
+                    TvChip(DAY_LABELS[i], schedule.runsOn(i), { update(schedule.copy(days = schedule.days xor (1 shl i))) }, Modifier.width(ChipWidth), compact = true)
                 }
 
                 SectionHeader("Stay disconnected for")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding), verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
-                    OFFLINE_OPTIONS.forEach { seconds ->
-                        TvChip(formatSeconds(seconds), schedule.offlineSeconds == seconds, { update(schedule.copy(offlineSeconds = seconds)) }, compact = true)
-                    }
+                ChipRows(OFFLINE_OPTIONS, perRow = 4) { seconds ->
+                    TvChip(formatSeconds(seconds), schedule.offlineSeconds == seconds, { update(schedule.copy(offlineSeconds = seconds)) }, Modifier.width(ChipWidth), compact = true)
                 }
                 Spacer(Modifier.size(Dimens.largePadding))
             }
@@ -162,6 +157,17 @@ fun ScheduleScreen() {
                     runCatching { context.startActivity(Intent(AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 })
             }
+        }
+    }
+}
+
+private val ChipWidth = 98.dp
+
+@Composable
+private fun <T> ChipRows(items: List<T>, perRow: Int, chip: @Composable (T) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
+        items.chunked(perRow).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) { row.forEach { chip(it) } }
         }
     }
 }

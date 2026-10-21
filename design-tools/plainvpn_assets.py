@@ -219,16 +219,15 @@ if __name__ == "__main__":
     a, d = kit / "assets", res / "drawable"
     convert(a / "logo/plain-dark.svg", d / "pv_wordmark.xml", 124)
     convert(a / "logo/monogram-dark.svg", d / "pv_monogram.xml", 48)
-    convert(a / "apps/tunnel-glyph.svg", d / "pv_shield.xml", 96, viewbox=(252, 160, 520, 690))
-    # Launcher: the kit's dark tile split into an adaptive background (tile gradient) and the
-    # shield as foreground, scaled into the 108dp icon's 66dp safe zone.
-    tile = HERE / "pv_tile.svg"  # full-bleed (the launcher applies its own mask), kit tile gradient
-    tile.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><defs><linearGradient id="t" x2="0.3" y2="1">'
-                    '<stop stop-color="#263341"/><stop offset="1" stop-color="#080E15"/></linearGradient></defs>'
-                    '<rect width="1024" height="1024" fill="url(#t)"/></svg>', encoding="utf-8")
+    # Launcher: the kit's p. monogram (the same mark as the drawer rail). Its tile becomes the
+    # full-bleed adaptive background; the letter and blue dot are the foreground, scaled into
+    # the 108dp icon's safe zone.
+    tile = HERE / "pv_tile.svg"
+    tile.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="#0B1017"/></svg>', encoding="utf-8")
     convert(tile, d / "pv_launcher_background.xml", 108)
-    convert(a / "apps/tunnel-glyph.svg", d / "pv_launcher_foreground.xml", 108,
-            wrap='android:scaleX="0.62" android:scaleY="0.62" android:pivotX="512" android:pivotY="505"')
+    convert(a / "logo/monogram-dark.svg", d / "pv_launcher_foreground.xml", 108,
+            skip=lambda e: e.tag.replace(NS, "") == "rect",
+            wrap='android:scaleX="0.72" android:scaleY="0.72" android:pivotX="512" android:pivotY="512"')
     ground = HERE / "pv_ground.svg"
     ground.write_text(GROUND, encoding="utf-8")
     convert(ground, d / "pv_ground.xml", 800)

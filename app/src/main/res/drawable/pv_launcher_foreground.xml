@@ -1,27 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- plainVPN design, generated from tunnel-glyph.svg by design-tools/plainvpn_assets.py; do not hand-edit. -->
+<!-- plainVPN design, generated from monogram-dark.svg by design-tools/plainvpn_assets.py; do not hand-edit. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108.0dp"
     android:viewportWidth="1024" android:viewportHeight="1024">
-    <group android:scaleX="0.62" android:scaleY="0.62" android:pivotX="512" android:pivotY="505">
-      <path android:pathData="M512 180C422 243 347 256 277 263V474C277 652 389 766 512 830C635 766 747 652 747 474V263C670 256 595 240 512 180Z">
-          <aapt:attr name="android:fillColor">
-          <gradient android:type="linear" android:startX="277.0" android:startY="180.0" android:endX="747.0" android:endY="830.0">
-            <item android:offset="0" android:color="#FF67D3FF"/>
-            <item android:offset="0.5" android:color="#FF287BFF"/>
-            <item android:offset="1" android:color="#FF623BEE"/>
-          </gradient>
-        </aapt:attr>
-      </path>
-      <path android:pathData="M512 180C422 243 347 256 277 263V474C277 652 389 766 512 830Z">
-          <aapt:attr name="android:fillColor">
-          <gradient android:type="linear" android:startX="277.0" android:startY="180.0" android:endX="512.0" android:endY="830.0">
-            <item android:offset="0" android:color="#FFB4E9FF"/>
-            <item android:offset="1" android:color="#FF3A8EED"/>
-          </gradient>
-        </aapt:attr>
-      </path>
-      <path android:pathData="M512 180V830C451 741 414 623 414 486V239Z" android:fillColor="#FFFFFFFF" android:fillAlpha="0.12"/>
+    <group android:scaleX="0.72" android:scaleY="0.72" android:pivotX="512" android:pivotY="512">
+      <group android:translateX="170" android:translateY="95">
+        <group android:scaleX="6" android:scaleY="6">
+          <path android:pathData="M47.50,32.25 L55.25,33.25 L57.50,34.25 L58.50,34.25 L60.00,35.25 L60.75,35.25 L61.00,35.75 L63.00,36.50 L63.25,37.00 L65.25,38.00 L66.00,39.00 L66.50,39.00 L70.00,42.50 L70.00,43.00 L71.50,44.50 L71.75,45.50 L72.50,46.00 L75.00,51.25 L75.00,52.25 L76.00,54.75 L76.75,60.00 L76.50,68.00 L76.00,69.25 L75.75,72.00 L74.75,74.25 L74.75,75.25 L74.00,76.00 L73.75,77.50 L73.00,78.25 L72.75,79.50 L72.00,80.00 L71.75,81.00 L70.50,82.25 L70.50,82.75 L66.50,87.00 L66.00,87.00 L64.25,88.75 L61.25,90.25 L61.00,90.75 L59.50,91.00 L58.75,91.75 L57.75,91.75 L55.75,92.75 L52.75,93.00 L51.50,93.50 L45.25,93.75 L39.00,92.50 L33.25,89.75 L31.25,87.75 L30.75,87.75 L29.25,86.25 L29.00,85.50 L28.00,85.50 L27.75,113.00 L9.25,113.00 L9.25,34.00 L9.75,33.50 L27.50,33.50 L27.75,40.75 L28.75,41.00 L29.50,40.25 L29.50,39.75 L30.25,39.00 L30.75,39.00 L32.00,37.50 L32.50,37.50 L35.00,35.50 L37.00,34.75 L37.25,34.25 L39.00,34.00 L40.00,33.25 L41.25,33.00 L44.25,32.50 L47.50,32.50Z  M41.75,47.75 L37.00,48.75 L33.50,50.75 L29.75,55.00 L29.75,55.75 L28.75,57.00 L27.75,61.00 L28.00,66.75 L30.00,71.50 L34.50,76.00 L35.50,76.25 L36.75,77.25 L37.75,77.25 L39.00,78.00 L40.50,78.25 L46.75,78.00 L51.75,76.00 L56.00,71.75 L56.50,70.25 L57.00,70.00 L58.25,65.50 L58.00,59.00 L57.25,57.50 L57.25,56.50 L56.50,55.75 L56.25,54.50 L55.25,53.75 L55.25,53.25 L52.75,50.75 L50.25,49.50 L50.00,49.00 L46.75,48.00 L42.00,47.75Z " android:fillColor="#FFFFFFFF" android:fillType="evenOdd"/>
+        </group>
+      </group>
+      <path android:pathData="M675,680a65,65 0 1,0 130,0a65,65 0 1,0 -130,0Z" android:fillColor="#FF1677FF"/>
     </group>
 </vector>

@@ -1,5 +1,5 @@
-"""plainVPN TV launcher banner: centred lockup (shield glyph + plain. wordmark + VPN) on the kit's
-dark tile gradient, like the big VPN apps' banners. Renders a 640x360 PNG with resvg-py.
+"""plainVPN TV launcher banner: just "plain. VPN", centred and as large as the safe area allows,
+on the app's night-sky gradient. Renders a 640x360 PNG with resvg-py.
 
 Usage: python plainvpn_banner.py <Plain-AI-Style-Kit folder> <out.png>
 """
@@ -9,44 +9,36 @@ from pathlib import Path
 
 import resvg_py
 
+HERE = Path(__file__).parent
 kit, out = Path(sys.argv[1]), Path(sys.argv[2])
 font = kit / "fonts/InterVariable.ttf"
 
+word = re.sub(r"^\s*<svg[^>]*>|</svg>\s*$", "", (kit / "assets/logo/plain-dark.svg").read_text(encoding="utf-8"))  # 310 x 125
 
-def inner(p):
-    s = (kit / p).read_text(encoding="utf-8").strip()
-    defs = "".join(re.findall(r"<defs>.*?</defs>", s, re.S))
-    body = re.sub(r"^<svg[^>]*>|</svg>$|<defs>.*?</defs>", "", s, flags=re.S)
-    return defs, body
-
-
-shield_defs, shield = inner("assets/apps/tunnel-glyph.svg")   # 1024 artboard, shield spans x 277-747, y 180-830
-_, word = inner("assets/logo/plain-dark.svg")                   # 310 x 125
-
-S = 0.54            # shield: 650 * 0.54 = 351 tall
-WORD_W = 700        # wordmark width
+# Lockup width = wordmark + gap + "VPN" (Inter semibold advance ~2.12 em for these three letters).
+# Keep ~8.5% side margins: the launcher rounds the tile's corners and scales it on focus.
+SAFE_W = 1600 * 0.83
+VPN_EM = 2.12
+# "VPN" cap height matches the wordmark's x-height region: font size = 0.52 x wordmark height.
+# Solve WORD_W + gap + VPN_EM * size = SAFE_W with height = WORD_W * 125/310, size = 0.52 * height.
+k = 125 / 310
+WORD_W = SAFE_W / (1 + 0.025 + VPN_EM * 0.52 * k)
 ws = WORD_W / 310
 word_h = 125 * ws
-vpn_size = 132
-gap = 56
-shield_w = 470 * S
-vpn_w = 0.62 * vpn_size * 3  # rough Inter semibold advance for "VPN"
-total = shield_w + gap + WORD_W + 18 + vpn_w
-x0 = (1600 - total) / 2
-shield_x = x0 - 277 * S
-shield_y = 450 - (180 + 325) * S
-word_x = x0 + shield_w + gap
-word_y = 450 - word_h * 0.62
-baseline = word_y + 96 * ws    # the wordmark's baseline sits at ~96 of its 125 artboard
+gap = WORD_W * 0.025
+vpn_size = 0.52 * word_h
+total = WORD_W + gap + VPN_EM * vpn_size
+word_x = (1600 - total) / 2
+# Centre the letters' visual band (top of the l/i ~10 to baseline ~96 of 125), not the artboard.
+word_y = 450 - (10 + 96) / 2 * ws - 16  # optical: the p descender makes it read low
+baseline = word_y + 96 * ws
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
-{shield_defs}
-<defs><linearGradient id="bg" x2="0.3" y2="1"><stop stop-color="#1A2533"/><stop offset="1" stop-color="#080E15"/></linearGradient></defs>
-<rect width="1600" height="900" fill="url(#bg)"/>
-<g transform="translate({shield_x:.1f} {shield_y:.1f}) scale({S})">{shield}</g>
+<defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#0B1017"/><stop offset="1" stop-color="#121D2E"/></linearGradient></defs>
+<rect width="1600" height="900" fill="url(#sky)"/>
 <g transform="translate({word_x:.1f} {word_y:.1f}) scale({ws:.4f})">{word}</g>
-<text x="{word_x + WORD_W + 18:.1f}" y="{baseline:.1f}" font-family="Inter Variable, Inter" font-weight="600" font-size="{vpn_size}" fill="#B0BDCE">VPN</text>
+<text x="{word_x + WORD_W + gap:.1f}" y="{baseline:.1f}" font-family="Inter Variable, Inter" font-weight="600" font-size="{vpn_size:.1f}" fill="#B0BDCE">VPN</text>
 </svg>'''
 png = resvg_py.svg_to_bytes(svg_string=svg, width=640, height=360, font_files=[str(font)], skip_system_fonts=True)
 out.write_bytes(bytes(png))
-(Path(__file__).parent / "pv_banner.svg").write_text(svg, encoding="utf-8")
+(HERE / "pv_banner.svg").write_text(svg, encoding="utf-8")

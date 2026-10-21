@@ -255,7 +255,7 @@ fun ScreenTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, style = MaterialTheme.typography.headlineSmall, color = Plain.Text, modifier = modifier.padding(bottom = Dimens.mediumPadding))
 }
 
-/** Selectable option. Selected = blue with a check mark, so the state isn't colour-only. [compact] for dense option grids. */
+/** Selectable option. Selected = blue fill (+ a check mark, except [compact] grid chips, where the fill alone shows it). */
 @Composable
 fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     val interaction = remember { MutableInteractionSource() }
@@ -265,20 +265,28 @@ fun TvChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
         focused -> Plain.Raised
         else -> Plain.Surface
     }
+    val fg = if (selected) Plain.OnPrimary else Plain.Text
+    val base = modifier
+        .heightIn(min = if (compact) 36.dp else 44.dp)
+        .focusRing(focused)
+        .clip(Dimens.chipShape)
+        .background(bg)
+        .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+    if (compact) {
+        // Fixed-width grid chip: no check mark, the fill shows the selection. The label stays
+        // centred, so selecting one changes only its colours, never its size or position.
+        Box(contentAlignment = Alignment.Center, modifier = base.padding(horizontal = 8.dp, vertical = 4.dp)) {
+            Text(text, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1, softWrap = false)
+        }
+        return
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier
-            .heightIn(min = if (compact) 36.dp else 44.dp)
-            .focusRing(focused)
-            .clip(Dimens.chipShape)
-            .background(bg)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = if (compact) 12.dp else Dimens.mediumPadding, vertical = if (compact) 4.dp else Dimens.smallPadding),
+        modifier = base.padding(horizontal = Dimens.mediumPadding, vertical = Dimens.smallPadding),
     ) {
-        val fg = if (selected) Plain.OnPrimary else Plain.Text
-        if (selected) Icon(plainIcon(R.drawable.pi_check), contentDescription = null, tint = fg, modifier = Modifier.size(if (compact) 16.dp else 18.dp))
-        Text(text, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge, color = fg)
+        if (selected) Icon(plainIcon(R.drawable.pi_check), contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge, color = fg)
     }
 }
 
