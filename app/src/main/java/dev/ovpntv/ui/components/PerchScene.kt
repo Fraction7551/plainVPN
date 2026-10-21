@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -38,37 +39,33 @@ import dev.ovpntv.ui.theme.Plain
 import dev.ovpntv.vpn.TunnelState
 
 /*
- * The Home illustration: the kit's arch over two hills (arch_panel, a crop of
- * artwork/arch-bird-16x9.svg) with the Plain bird drawn separately so it can move.
+ * The Home backdrop, from the kit artwork (artwork/arch-bird-16x9.svg): its two hills as a
+ * low ground band along the bottom of the screen, the arch standing on it at [archCenter],
+ * and the Plain bird drawn separately so it can move.
  *
  * The bird reflects real service state only, and the screen always says the same thing in text:
  *  - Connected: it flies in from the top-right corner and perches on the arch, facing the status text.
  *  - Scheduled pause: it dozes on the arch (sleepy pose). Reconnecting: it waits there (curious).
- *  - Disconnected: it turns and flies off. If the connection failed, a concerned bird stands on the hill.
+ *  - Disconnected: it turns and flies off. If the connection failed, a concerned bird stands by the arch.
  * One glide per state change, no loops or bouncing (kit motion rules). With animations
  * turned off in Android's settings it just appears or disappears.
  */
 
-// Geometry in arch_panel viewport units (600 x 480), taken from the kit artwork.
-private const val ART_W = 600f
-private const val ART_H = 480f
-/** Top centre of the arch, where the bird's feet go. */
-private const val PERCH_X = 275f
-private const val PERCH_Y = 65f
-/** The artwork draws the bird at 0.55 of its 240 x 200 master. */
-private const val BIRD_W = 240f * 0.55f
-private const val BIRD_H = 200f * 0.55f
+/** Height of the hills band; content above it should leave at least this much room. */
+val GroundHeight = 72.dp
+private val ArchWidth = 92.dp
+/** The arch master is 250 x 405 artwork units; the bird master 240 x 200, drawn at 0.55 in the artwork. */
+private const val ARCH_ASPECT = 405f / 250f
+private const val BIRD_SCALE = 0.55f * 1.25f // a touch bigger than the artwork so it reads on a TV
 /** Feet centre within the bird master, as fractions (x is mirrored: the bird faces left). */
 private const val FEET_X_MIRRORED = (240f - 133f) / 240f
 private const val FEET_Y = 197f / 200f
-/** Spot on the sky hill, left of the arch, for the concerned bird. */
-private const val HILL_X = 70f
-private const val HILL_Y = 282f
 
 private enum class Phase { Away, Arriving, Perched, Leaving }
 
+/** [archCenter] is the arch's horizontal centre as a fraction of the width. */
 @Composable
-fun PerchScene(state: TunnelState, modifier: Modifier = Modifier) {
+fun PerchScene(state: TunnelState, modifier: Modifier = Modifier, archCenter: Float = 0.78f) {
     val context = LocalContext.current
     val reducedMotion = remember {
         AndroidSettings.Global.getFloat(context.contentResolver, AndroidSettings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
@@ -79,8 +76,7 @@ fun PerchScene(state: TunnelState, modifier: Modifier = Modifier) {
         else -> null // Connecting / Disconnecting: stay wherever it is.
     }
     // Opening the app on an already-running tunnel shows the bird already perched; it only flies on changes.
-    val initiallyPerched = wantPerched == true
-    var phase by remember { mutableStateOf(if (initiallyPerched) Phase.Perched else Phase.Away) }
+    var phase by remember { mutableStateOf(if (wantPerched == true) Phase.Perched else Phase.Away) }
     val flight = remember { Animatable(0f) }
 
     LaunchedEffect(wantPerched) {
@@ -106,19 +102,28 @@ fun PerchScene(state: TunnelState, modifier: Modifier = Modifier) {
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         val w = maxWidth
-        val s = w / ART_W // dp per artwork unit
-        val artTop = maxHeight - s * ART_H
-        val birdW = s * BIRD_W
-        val birdH = s * BIRD_H
-        // Top-left of the bird when perched (mirrored, feet on the arch).
-        val perchX = s * PERCH_X - birdW * FEET_X_MIRRORED
-        val perchY = artTop + s * PERCH_Y - birdH * FEET_Y
+        val h = maxHeight
+        val archH = ArchWidth * ARCH_ASPECT
+        val archLeft = w * archCenter - ArchWidth / 2
+        val archTop = h - archH
+        // One artwork unit in dp, from the arch's 250-unit width.
+        val unit = ArchWidth / 250f
+        val birdW = unit * 240f * BIRD_SCALE
+        val birdH = unit * 200f * BIRD_SCALE
+        // Top-left of the bird when perched (mirrored, feet on top of the arch).
+        val perchX = w * archCenter - birdW * FEET_X_MIRRORED
+        val perchY = archTop - birdH * FEET_Y
 
         Image(
-            painterResource(R.drawable.arch_panel),
+            painterResource(R.drawable.hills_band),
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
-            modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxWidth().height(GroundHeight).align(Alignment.BottomCenter),
+        )
+        Image(
+            painterResource(R.drawable.arch),
+            contentDescription = null,
+            modifier = Modifier.offset(x = archLeft, y = archTop).size(ArchWidth, archH),
         )
 
         val error = (state as? TunnelState.Disconnected)?.error != null
@@ -126,9 +131,10 @@ fun PerchScene(state: TunnelState, modifier: Modifier = Modifier) {
             visible = error && phase == Phase.Away,
             enter = fadeIn(tween(Plain.SHEET_MS)),
             exit = fadeOut(tween(Plain.STANDARD_MS)),
-            modifier = Modifier.offset(x = s * HILL_X - birdW * FEET_X_MIRRORED, y = artTop + s * HILL_Y - birdH * FEET_Y),
+            // Standing on the ground just left of the arch.
+            modifier = Modifier.offset(x = archLeft - birdW * 1.05f, y = h - GroundHeight * 0.45f - birdH * FEET_Y),
         ) {
-            Bird(R.drawable.bird_concerned, birdW, birdH, mirrored = true)
+            Bird(R.drawable.bird_concerned, birdW, birdH, mirrored = false)
         }
 
         if (phase != Phase.Away) {
@@ -155,8 +161,8 @@ fun PerchScene(state: TunnelState, modifier: Modifier = Modifier) {
                                 // Quadratic curve from beyond the top-right corner, dipping, then levelling onto the arch.
                                 val sx = (w - perchX + birdW * 0.3f).toPx()
                                 val sy = -(perchY + birdH * 1.4f).toPx()
-                                val cx = (w * 0.3f).toPx()
-                                val cy = (birdH * 0.25f).toPx()
+                                val cx = (birdW * 2.5f).toPx()
+                                val cy = (birdH * 0.3f).toPx()
                                 val u = 1f - t
                                 translationX = u * u * sx + 2 * u * t * cx
                                 translationY = u * u * sy + 2 * u * t * cy

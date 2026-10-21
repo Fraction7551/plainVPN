@@ -102,7 +102,7 @@ fun ProfilesScreen(onConnect: (String?) -> Unit, onPickFile: () -> Boolean) {
 
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Dimens.mediumPadding)) {
             SectionHeader("Import a profile")
-            TvButton("From phone or computer (Wi-Fi)", { showLanImport = true }, icon = plainIcon(R.drawable.pi_cast))
+            TvButton("From phone or computer", { showLanImport = true }, icon = plainIcon(R.drawable.pi_cast))
             TvButton("From storage / USB", {
                 if (!onPickFile()) {
                     Toast.makeText(context, "This TV has no file picker. Use the Wi-Fi import or the drop folder instead.", Toast.LENGTH_LONG).show()

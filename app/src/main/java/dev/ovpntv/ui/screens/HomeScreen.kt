@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.ovpntv.R
 import dev.ovpntv.data.Profile
 import dev.ovpntv.data.ProfileRepository
@@ -55,6 +56,7 @@ import dev.ovpntv.data.SplitMode
 import dev.ovpntv.schedule.ReconnectScheduler
 import dev.ovpntv.ui.components.ButtonStyle
 import dev.ovpntv.ui.components.ErrorBanner
+import dev.ovpntv.ui.components.GroundHeight
 import dev.ovpntv.ui.components.FeatureChip
 import dev.ovpntv.ui.components.PerchScene
 import dev.ovpntv.ui.components.PlainCard
@@ -69,13 +71,12 @@ import dev.ovpntv.update.Updater
 import dev.ovpntv.vpn.TunnelState
 import dev.ovpntv.vpn.VpnState
 import kotlinx.coroutines.delay
-import java.text.DateFormat
 import java.util.Date
 
 /**
  * Connection screen, after the kit's plain tunnel spec: wordmark, status symbol + heading,
  * the selected profile as a location card, live details, one apricot primary action. The
- * right-hand panel holds the arch illustration and the bird (see PerchScene).
+ * kit artwork is the ground: hills along the bottom, the arch and bird on the right (see PerchScene).
  */
 @Composable
 fun HomeScreen(
@@ -96,138 +97,147 @@ fun HomeScreen(
     val primaryFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { primaryFocus.requestFocus() } }
 
-    Row(Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .weight(1.15f)
-                .fillMaxHeight()
-                .padding(top = Dimens.screenVertical, bottom = Dimens.screenVertical, end = Dimens.largePadding),
-        ) {
-            Image(
-                painterResource(R.drawable.plain_tunnel_wordmark),
-                contentDescription = "plain tunnel",
-                modifier = Modifier.height(36.dp),
-            )
-            (state as? TunnelState.Disconnected)?.error?.let {
+    Box(Modifier.fillMaxSize()) {
+        // The kit's hills run along the bottom as the ground; the arch and bird stand on the right.
+        PerchScene(state, archCenter = 0.8f)
+
+        Row(Modifier.fillMaxSize().padding(start = dev.ovpntv.ui.ContentStart, top = Dimens.screenVertical, end = Dimens.screenHorizontal)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(end = Dimens.largePadding, bottom = GroundHeight + Dimens.mediumPadding),
+            ) {
+                Image(
+                    painterResource(R.drawable.plain_tunnel_wordmark),
+                    contentDescription = "plain tunnel",
+                    modifier = Modifier.height(36.dp),
+                )
+                Spacer(Modifier.height(28.dp))
+                StatusHero(state, blocking, split.isActive)
+                (state as? TunnelState.Disconnected)?.error?.let {
+                    Spacer(Modifier.height(Dimens.mediumPadding))
+                    ErrorBanner(it)
+                }
+                Spacer(Modifier.weight(1f))
+                ProfileCard(state, selected, profiles.isNotEmpty(), onOpenProfiles)
                 Spacer(Modifier.height(Dimens.mediumPadding))
-                ErrorBanner(it)
-            }
-            Spacer(Modifier.weight(1f))
 
-            StatusHeader(state, blocking, split.isActive)
-
-            Spacer(Modifier.height(20.dp))
-            ProfileCard(state, selected, onOpenProfiles)
-            ConnectionDetails(state)
-
-            val chips = schedule.enabled || split.isActive
-            if (chips) {
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
-                    if (schedule.enabled) ScheduleChip(schedule)
-                    if (split.isActive) {
-                        val count = split.apps.size
-                        FeatureChip(
-                            icon = plainIcon(R.drawable.pi_tv),
-                            text = when (split.mode) {
-                                SplitMode.OnlySelected -> "VPN for $count app${if (count == 1) "" else "s"}"
-                                else -> "$count app${if (count == 1) "" else "s"} bypass"
-                            },
+                // One primary button whose label changes with the state, so focus stays on it
+                // instead of jumping to the drawer when Connect turns into Cancel and back.
+                val failed = (state as? TunnelState.Disconnected)?.error != null
+                val (primaryText, primaryOnClick) = when (state) {
+                    is TunnelState.Disconnected -> (if (failed) "Try again" else "Connect") to { if (selected == null) onOpenProfiles() else onConnect(selected.id) }
+                    is TunnelState.Connecting -> "Cancel" to onDisconnect
+                    is TunnelState.ScheduledPause -> "Stay disconnected" to onDisconnect
+                    TunnelState.Disconnecting -> "Disconnecting…" to onDisconnect
+                    else -> "Disconnect" to onDisconnect
+                }
+                // Side by side so Unblock can't be pushed off screen by the error banner.
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.mediumPadding)) {
+                    TvButton(
+                        text = primaryText,
+                        onClick = primaryOnClick,
+                        style = ButtonStyle.Primary,
+                        icon = plainIcon(R.drawable.pi_power),
+                        modifier = Modifier.weight(1f).focusRequester(primaryFocus),
+                    )
+                    if (blocking && state is TunnelState.Disconnected) {
+                        // This button disappears once clicked, so hand focus to Connect first.
+                        TvButton(
+                            "Unblock apps",
+                            { runCatching { primaryFocus.requestFocus() }; onDisconnect() },
+                            Modifier.weight(1f),
+                            icon = plainIcon(R.drawable.pi_unlock),
                         )
+                    } else if (!schedule.enabled) {
+                        TvButton("Schedule", onOpenSchedule, Modifier.weight(1f), icon = plainIcon(R.drawable.pi_clock))
                     }
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
-            // One primary button whose label changes with the state, so focus stays on it
-            // instead of jumping to the drawer when Connect turns into Cancel and back.
-            val failed = (state as? TunnelState.Disconnected)?.error != null
-            val (primaryText, primaryOnClick) = when (state) {
-                is TunnelState.Disconnected -> (if (failed) "Try again" else "Connect") to { if (selected == null) onOpenProfiles() else onConnect(selected.id) }
-                is TunnelState.Connecting -> "Cancel" to onDisconnect
-                is TunnelState.ScheduledPause -> "Stay disconnected" to onDisconnect
-                TunnelState.Disconnecting -> "Disconnecting…" to onDisconnect
-                else -> "Disconnect" to onDisconnect
-            }
-            // Side by side so Unblock can't be pushed off screen by the error banner.
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.mediumPadding)) {
-                TvButton(
-                    text = primaryText,
-                    onClick = primaryOnClick,
-                    style = ButtonStyle.Primary,
-                    icon = plainIcon(R.drawable.pi_power),
-                    modifier = Modifier.weight(1f).focusRequester(primaryFocus),
-                )
-                if (blocking && state is TunnelState.Disconnected) {
-                    // This button disappears once clicked, so hand focus to Connect first.
-                    TvButton(
-                        "Unblock apps",
-                        { runCatching { primaryFocus.requestFocus() }; onDisconnect() },
-                        Modifier.weight(1f),
-                        icon = plainIcon(R.drawable.pi_unlock),
-                    )
-                } else if (!schedule.enabled) {
-                    TvButton("Schedule reconnect", onOpenSchedule, Modifier.weight(1f), icon = plainIcon(R.drawable.pi_clock))
+            // Details and the update banner sit in the sky above the arch, clear of the bird.
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
+                modifier = Modifier
+                    .weight(0.9f)
+                    .fillMaxHeight()
+                    .padding(bottom = 210.dp),
+            ) {
+                AppUpdateBanner(Modifier)
+                Spacer(Modifier.weight(1f))
+                ConnectionDetails(state)
+                if (schedule.enabled || split.isActive) {
+                    // Stacked rather than side by side: the column is too narrow for both on one line.
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding)) {
+                        if (schedule.enabled) ScheduleChip(schedule)
+                        if (split.isActive) {
+                            val count = split.apps.size
+                            FeatureChip(
+                                icon = plainIcon(R.drawable.pi_tv),
+                                text = when (split.mode) {
+                                    SplitMode.OnlySelected -> "$count app${if (count == 1) "" else "s"} on VPN"
+                                    else -> "$count app${if (count == 1) "" else "s"} bypass"
+                                },
+                            )
+                        }
+                    }
                 }
             }
-        }
-
-        // Illustration panel: bleeds to the right and bottom screen edges.
-        Box(
-            Modifier
-                .weight(0.85f)
-                .fillMaxHeight()
-                .padding(top = Dimens.screenVertical)
-                .clip(RoundedCornerShape(topStart = 24.dp))
-                .background(Plain.Surface),
-        ) {
-            PerchScene(state)
-            // Over the panel's empty sky, so it never pushes the left column's buttons off screen.
-            AppUpdateBanner(Modifier.align(Alignment.TopCenter).padding(Dimens.mediumPadding))
         }
     }
 }
 
+/**
+ * Status hero under the wordmark, after the bible's desktop connection screen: a small
+ * "VPN connection" label with the lock symbol, the state as a big Fredoka heading, then one
+ * line of plain explanation. Symbol + words, so the state never depends on colour.
+ */
 @Composable
-private fun StatusHeader(state: TunnelState, blocking: Boolean, splitActive: Boolean) {
+private fun StatusHero(state: TunnelState, blocking: Boolean, splitActive: Boolean) {
     val connected = state is TunnelState.Connected
     val busy = state is TunnelState.Connecting || state is TunnelState.Disconnecting
     val circle by animateColorAsState(if (connected) Plain.Sage else Plain.Raised, tween(Plain.SHEET_MS), label = "statusCircle")
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(72.dp)) {
-            Box(Modifier.size(72.dp).background(circle, CircleShape))
-            if (busy) CircularProgressIndicator(color = Plain.Apricot, strokeWidth = 3.dp, trackColor = Plain.Raised, modifier = Modifier.size(72.dp))
-            Icon(
-                plainIcon(if (connected || busy || state is TunnelState.ScheduledPause) R.drawable.pi_lock else R.drawable.pi_unlock),
-                contentDescription = null,
-                tint = if (connected) Plain.Pine else Plain.Cream,
-                modifier = Modifier.size(32.dp),
-            )
+    Column(Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(44.dp)) {
+                Box(Modifier.size(44.dp).background(circle, CircleShape))
+                if (busy) CircularProgressIndicator(color = Plain.Apricot, strokeWidth = 2.5.dp, trackColor = Plain.Raised, modifier = Modifier.size(44.dp))
+                Icon(
+                    plainIcon(if (connected || busy || state is TunnelState.ScheduledPause) R.drawable.pi_lock else R.drawable.pi_unlock),
+                    contentDescription = null,
+                    tint = if (connected) Plain.Pine else Plain.Cream,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Text("VPN connection", style = MaterialTheme.typography.titleMedium, color = Plain.Muted)
         }
-        Spacer(Modifier.width(20.dp))
-        Column(Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
-            Text(
-                text = statusText(state),
-                style = MaterialTheme.typography.headlineLarge,
-                color = Plain.Text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.semantics { heading() },
-            )
-            Text(
-                text = statusDetail(state, blocking, splitActive),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Plain.Muted,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Spacer(Modifier.height(10.dp))
+        val heading = statusText(state)
+        // Long states ("Couldn't connect.", "Disconnecting…") step down a size so they stay on one line.
+        val size = if (heading.length > 12) 40.sp else 48.sp
+        Text(
+            text = heading,
+            style = MaterialTheme.typography.displaySmall.copy(fontSize = size, lineHeight = 54.sp),
+            color = Plain.Text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            text = statusDetail(state, blocking, splitActive),
+            style = MaterialTheme.typography.bodyLarge,
+            color = Plain.Muted,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
 /** The selected profile, shown like the kit's location card. Opens Profiles. */
 @Composable
-private fun ProfileCard(state: TunnelState, selected: Profile?, onClick: () -> Unit) {
+private fun ProfileCard(state: TunnelState, selected: Profile?, hasProfiles: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val name = when (state) {
@@ -254,7 +264,7 @@ private fun ProfileCard(state: TunnelState, selected: Profile?, onClick: () -> U
         Column(Modifier.weight(1f)) {
             Text(name, style = MaterialTheme.typography.titleMedium, color = Plain.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                selected?.let { "${it.serverLabel} · via OpenVPN ${it.protocol?.uppercase().orEmpty()}".trim() } ?: "No profile imported yet",
+                selected?.let { "${it.serverLabel} · via OpenVPN ${it.protocol?.uppercase().orEmpty()}".trim() } ?: if (hasProfiles) "Pick the one to connect with" else "No profile imported yet",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Plain.Muted,
                 maxLines = 1,
@@ -308,7 +318,11 @@ private fun ScheduleChip(schedule: ReconnectSchedule) {
     val next = remember(schedule, now / 60_000) { ReconnectScheduler.nextTrigger(schedule, now) }
     FeatureChip(
         icon = plainIcon(R.drawable.pi_clock),
-        text = next?.let { "Reconnect ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))}" }
+        text = next?.let {
+            // Weekday + time in the TV's locale, e.g. "Wed 4:00 AM", so the chip stays one line.
+            val pattern = android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), "EEEjmm")
+            "Reconnect ${java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault()).format(Date(it))}"
+        }
             ?: "Reconnect · no days selected",
     )
 }
@@ -337,7 +351,6 @@ private fun ConnectionDetails(state: TunnelState) {
         else -> emptyList()
     }
     if (rows.isEmpty()) return
-    Spacer(Modifier.height(12.dp))
     PlainCard(Modifier.fillMaxWidth(), padding = 14.dp) {
         rows.chunked(2).forEachIndexed { i, pair ->
             if (i > 0) Spacer(Modifier.height(10.dp))
@@ -355,11 +368,11 @@ private fun ConnectionDetails(state: TunnelState) {
 }
 
 private fun statusText(state: TunnelState) = when (state) {
-    is TunnelState.Connected -> "Connected"
+    is TunnelState.Connected -> "Connected."
     is TunnelState.Connecting -> "Connecting…"
-    is TunnelState.Disconnected -> if (state.error != null) "Couldn't connect" else "Not connected"
+    is TunnelState.Disconnected -> if (state.error != null) "Couldn't connect." else "Not connected."
     TunnelState.Disconnecting -> "Disconnecting…"
-    is TunnelState.ScheduledPause -> "Scheduled pause"
+    is TunnelState.ScheduledPause -> "Paused."
 }
 
 private fun statusDetail(state: TunnelState, blocking: Boolean, splitActive: Boolean) = when (state) {

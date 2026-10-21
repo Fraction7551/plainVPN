@@ -55,6 +55,9 @@ import dev.ovpntv.ui.theme.Dimens
 import dev.ovpntv.ui.components.plainIcon
 import dev.ovpntv.ui.theme.Plain
 
+/** Content starts right of the collapsed drawer rail. */
+val ContentStart = 104.dp
+
 enum class Destination(val label: String, @DrawableRes val icon: Int) {
     Home("Connection", R.drawable.pi_power),
     Profiles("Profiles", R.drawable.pi_location),
@@ -123,9 +126,9 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                // Home lets its illustration panel run to the right and bottom edges, so it pads itself.
+                // Home's ground artwork runs edge to edge under the rail, so it pads itself.
                 .padding(
-                    start = 88.dp + Dimens.mediumPadding,
+                    start = if (destination == Destination.Home) 0.dp else ContentStart,
                     end = if (destination == Destination.Home) 0.dp else Dimens.screenHorizontal,
                     top = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
                     bottom = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
@@ -189,6 +192,6 @@ private fun NavigationDrawerScope.DrawerItem(destination: Destination, selected:
             pressedContentColor = Plain.Pine,
         ),
     ) {
-        Text(destination.label, maxLines = 1, overflow = TextOverflow.Clip)
+        Text(destination.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Clip)
     }
 }

@@ -271,7 +271,7 @@ fun FeatureChip(text: String, modifier: Modifier = Modifier, icon: ImageVector? 
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         if (icon != null) Icon(icon, null, tint = Plain.Muted, modifier = Modifier.size(18.dp))
-        Text(text, style = MaterialTheme.typography.labelLarge, color = Plain.Text)
+        Text(text, style = MaterialTheme.typography.labelLarge, color = Plain.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
