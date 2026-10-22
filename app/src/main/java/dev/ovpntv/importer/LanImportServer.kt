@@ -7,23 +7,28 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
-import kotlin.random.Random
+import java.security.SecureRandom
+import java.util.concurrent.Semaphore
 
 /**
  * Tiny HTTP server that lets a phone or PC on the same network upload .ovpn
  * files to the TV. It only runs while the import screen is open, and every
- * upload must carry the PIN shown on the TV.
+ * upload must carry the PIN shown on the TV. Connections that come in over a
+ * VPN tunnel or from outside the local network are refused.
  */
 class LanImportServer(private val onImported: (String) -> Unit, private val onError: (String) -> Unit) {
-    val pin: String = Random.nextInt(1000, 10000).toString()
+    val pin: String = (SecureRandom().nextInt(900_000) + 100_000).toString()
     private var server: ServerSocket? = null
     @Volatile private var running = false
-    @Volatile private var failedPins = 0
+    private val pinLock = Any()
+    private var failedPins = 0
+    private val slots = Semaphore(MAX_CLIENTS)
 
     val port: Int get() = server?.localPort ?: 0
 
@@ -36,11 +41,46 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
         Thread({
             while (running) {
                 val client = runCatching { socket.accept() }.getOrNull() ?: break
-                Thread({ client.use { handle(it) } }, "lan-import-client").start()
+                if (!isLocalNetwork(client) || !slots.tryAcquire()) {
+                    runCatching { client.close() }
+                    continue
+                }
+                Thread({
+                    try {
+                        client.use { handle(it) }
+                    } catch (e: Exception) {
+                        // A dropped or timed-out connection; nothing to report.
+                    } finally {
+                        slots.release()
+                    }
+                }, "lan-import-client").start()
             }
         }, "lan-import").start()
         return true
     }
+
+    /**
+     * True for a connection from the local network: not through a VPN tunnel (the import
+     * screen may be open while plainVPN is connected) and from a private address.
+     */
+    private fun isLocalNetwork(client: Socket): Boolean {
+        val iface = runCatching { NetworkInterface.getByInetAddress(client.localAddress) }.getOrNull()
+        if (iface == null || TUNNEL_PREFIXES.any { iface.name.startsWith(it) }) return false
+        val remote = client.inetAddress
+        return remote.isSiteLocalAddress || remote.isLinkLocalAddress || remote.isLoopbackAddress ||
+            (remote is Inet6Address && (remote.address[0].toInt() and 0xfe) == 0xfc)
+    }
+
+    /** Counts a PIN attempt; checked and counted under one lock so parallel requests can't slip past the limit. */
+    private fun checkPin(given: String?): PinResult = synchronized(pinLock) {
+        when {
+            failedPins >= MAX_FAILED_PINS -> PinResult.LockedOut
+            given == pin -> PinResult.Ok
+            else -> { failedPins++; PinResult.Wrong }
+        }
+    }
+
+    private enum class PinResult { Ok, Wrong, LockedOut }
 
     fun stop() {
         running = false
@@ -57,6 +97,7 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
         while (true) {
             val line = readLine(input) ?: return
             if (line.isEmpty()) break
+            if (headers.size >= MAX_HEADERS) return
             val colon = line.indexOf(':')
             if (colon > 0) headers[line.substring(0, colon).trim().lowercase()] = line.substring(colon + 1).trim()
         }
@@ -69,10 +110,10 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
             method == "POST" && path == "/upload" -> {
                 val length = headers["content-length"]?.toIntOrNull() ?: -1
                 if (length !in 1..MAX_UPLOAD) return respond(out, 413, "text/plain", "File is empty or larger than 1 MB")
-                if (failedPins >= MAX_FAILED_PINS) return respond(out, 403, "text/plain", "Too many wrong PINs. Reopen the import screen on the TV.")
-                if (headers["x-pin"] != pin) {
-                    failedPins++
-                    return respond(out, 403, "text/plain", "Wrong PIN. Use the PIN shown on the TV.")
+                when (checkPin(headers["x-pin"])) {
+                    PinResult.LockedOut -> return respond(out, 403, "text/plain", "Too many wrong PINs. Reopen the import screen on the TV.")
+                    PinResult.Wrong -> return respond(out, 403, "text/plain", "Wrong PIN. Use the PIN shown on the TV.")
+                    PinResult.Ok -> Unit
                 }
                 val body = ByteArray(length)
                 var read = 0
@@ -81,7 +122,7 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
                     if (n < 0) break
                     read += n
                 }
-                val name = URLDecoder.decode(headers["x-filename"] ?: "Profile", "UTF-8")
+                val name = runCatching { URLDecoder.decode(headers["x-filename"] ?: "Profile", "UTF-8") }.getOrDefault("Profile").take(100)
                 try {
                     val profile = ProfileRepository.import(name, String(body, 0, read, Charsets.UTF_8))
                     onImported(profile.name)
@@ -118,6 +159,9 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
         private val PORTS = listOf(8080, 8088, 8888, 0)
         private const val MAX_UPLOAD = 1024 * 1024
         private const val MAX_FAILED_PINS = 10
+        private const val MAX_CLIENTS = 4
+        private const val MAX_HEADERS = 64
+        private val TUNNEL_PREFIXES = listOf("tun", "ppp", "ipsec", "wg")
 
         /** Site-local IPv4 addresses of this device, for display. */
         fun localAddresses(): List<String> = runCatching {
@@ -142,7 +186,7 @@ button{margin-top:24px;width:100%;padding:12px;border:0;border-radius:4px;backgr
 </style></head><body><main>
 <h1>Send VPN profiles to your TV</h1><p>Pick one or more .ovpn files and enter the PIN shown on the TV screen.</p>
 <label for="f">Profile files</label><input id="f" type="file" accept=".ovpn,.conf" multiple>
-<label for="pin">PIN</label><input id="pin" inputmode="numeric" maxlength="4" autocomplete="off">
+<label for="pin">PIN</label><input id="pin" inputmode="numeric" maxlength="6" autocomplete="off">
 <button id="go">Send to TV</button><div id="msg"></div>
 <script>
 document.getElementById('go').onclick=async()=>{const m=document.getElementById('msg');const files=document.getElementById('f').files;const pin=document.getElementById('pin').value.trim();

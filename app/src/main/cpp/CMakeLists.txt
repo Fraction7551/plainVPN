@@ -13,7 +13,7 @@ set(CMAKE_C_STANDARD 11)
 # Third-party sources live next to the project, in the test folder.
 get_filename_component(TEST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../.." ABSOLUTE)
 set(OPENVPN_DIR "${TEST_ROOT}/openvpn-src/openvpn-2.7.8")
-set(MBEDTLS_DIR "${TEST_ROOT}/deps/mbedtls-3.6.4")
+set(MBEDTLS_DIR "${TEST_ROOT}/deps/mbedtls-3.6.7")
 set(LZ4_DIR "${TEST_ROOT}/deps/lz4-1.10.0")
 set(LZO_DIR "${TEST_ROOT}/deps/lzo-2.10")
 

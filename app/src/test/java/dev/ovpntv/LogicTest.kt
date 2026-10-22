@@ -4,6 +4,7 @@ import dev.ovpntv.data.ConfigInfo
 import dev.ovpntv.data.ReconnectSchedule
 import dev.ovpntv.schedule.ReconnectScheduler
 import dev.ovpntv.vpn.ConfigSanitizer
+import dev.ovpntv.vpn.ManagementClient
 import dev.ovpntv.vpn.TunConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -97,6 +98,63 @@ class LogicTest {
         assertTrue("persist-tun" in out)
         assertTrue("log not-a-directive-inside-a-block" in out)
         assertTrue("remote vpn.example.com 1194 udp" in out)
+    }
+
+    /** Directive names as OpenVPN reads the sanitized output. */
+    private fun liveDirectives(config: String) = ConfigSanitizer.directives(ConfigSanitizer.sanitize(config)).map { it[0] }.toList()
+
+    @Test
+    fun sanitizerCatchesQuotedAndEscapedDirectives() {
+        val input = """
+            remote vpn.example.com 1194
+            "script-security" 2
+            'up' /system/bin/sh
+            scr\ipt-security 2
+            "--route-up" /system/bin/sh
+            "--plugin" /data/local/tmp/x.so
+              config /sdcard/other.ovpn
+        """.trimIndent()
+        val live = liveDirectives(input)
+        assertEquals(listOf("remote"), live)
+        // OpenVPN skips a UTF-8 byte-order mark before the first directive.
+        assertEquals(listOf("remote"), liveDirectives(0xFEFF.toChar() + "up /system/bin/sh\nremote x 1194\n"))
+    }
+
+    @Test
+    fun sanitizerTagsMatchOpenVpn() {
+        // OpenVPN ends a block at the first line that starts with the close tag, junk after it included.
+        val input = "remote x 1194\n<ca>\nAAAA\n</ca> trailing junk\nup /system/bin/sh\n"
+        assertEquals(listOf("remote"), liveDirectives(input))
+        // An opening tag that is not alone on its line is not a block for OpenVPN either.
+        assertEquals(listOf("remote", "<ca"), liveDirectives("remote x 1194\n<ca x>\nup /system/bin/sh\n").filter { it != "up" })
+        assertFalse("up" in liveDirectives("remote x 1194\n<ca x>\nup /system/bin/sh\n"))
+    }
+
+    @Test
+    fun sanitizerDropsLinesOpenVpnWouldSplit() {
+        // OpenVPN reads 256-byte chunks, so the tail of a long comment would become a directive.
+        val longComment = "#" + "a".repeat(255) + "script-security 2"
+        val out = ConfigSanitizer.sanitize("remote x 1194\n$longComment\n")
+        assertTrue(out.lines().all { it.toByteArray().size <= 250 })
+        // A removed line must not grow past the limit either.
+        val longPlugin = "plugin " + "b".repeat(230) + " x"
+        assertTrue(ConfigSanitizer.sanitize(longPlugin).lines().all { it.toByteArray().size <= 250 })
+    }
+
+    @Test
+    fun parseLineMatchesOpenVpn() {
+        assertEquals(listOf("remote", "a b", "1194"), ConfigSanitizer.parseLine("remote \"a b\" 1194"))
+        assertEquals(listOf("x", "c:\\k"), ConfigSanitizer.parseLine("x 'c:\\k'"))
+        assertEquals(listOf("verb", "3"), ConfigSanitizer.parseLine("  verb 3 # comment"))
+        assertEquals(emptyList<String>(), ConfigSanitizer.parseLine("; only a comment"))
+        assertNull(ConfigSanitizer.parseLine("remote \"unclosed"))
+        assertNull(ConfigSanitizer.parseLine("bad \\q escape"))
+    }
+
+    @Test
+    fun managementQuoteStripsLineBreaks() {
+        assertEquals("\"pa\\\"ss\"", ManagementClient.quote("pa\"ss"))
+        assertEquals("\"abc\"", ManagementClient.quote("a\nb\r\nc"))
     }
 
     @Test

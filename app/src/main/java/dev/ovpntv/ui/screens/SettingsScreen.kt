@@ -50,13 +50,13 @@ fun SettingsScreen() {
             ScreenTitle("Settings")
             SwitchCell(
                 title = "Connect when the TV starts",
-                subtitle = "Uses the selected profile. VPN permission must have been granted once.",
+                subtitle = "Connects to the selected profile",
                 checked = connectOnBoot,
                 onCheckedChange = Settings::setConnectOnBoot,
             )
             SwitchCell(
                 title = "Block VPN apps while reconnecting",
-                subtitle = "While the VPN connects, restarts or does its scheduled reconnect, apps that use it get no internet instead of your normal connection",
+                subtitle = "VPN apps stay offline until it's back",
                 checked = blockWhileReconnecting,
                 onCheckedChange = Settings::setBlockWhileReconnecting,
             )
@@ -72,8 +72,9 @@ fun SettingsScreen() {
                     is UpdateState.Available -> "Version ${s.info.versionName} is available"
                     is UpdateState.Downloading -> "Downloading ${s.info.versionName}... ${s.percent}%"
                     is UpdateState.Installing -> "Installing ${s.info.versionName}..."
-                    is UpdateState.NeedsPermission -> "Allow plainVPN to install apps, then press here again"
-                    is UpdateState.Failed -> s.message
+                    is UpdateState.NeedsPermission -> "Allow installs, then press again"
+                    // The full reason is in Logs.
+                    is UpdateState.Failed -> if (s.info != null) "Update failed. Press to retry" else "Couldn't check. Press to retry"
                 },
                 onClick = {
                     when (val s = update) {
@@ -85,7 +86,7 @@ fun SettingsScreen() {
             )
             ListCell(
                 title = "Always-on VPN & kill switch",
-                subtitle = "Open Android's VPN settings to make this app always-on and block traffic without VPN (where the TV supports it)",
+                subtitle = "Opens Android's VPN settings",
                 onClick = {
                     runCatching { context.startActivity(Intent(AndroidSettings.ACTION_VPN_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 },
@@ -97,7 +98,7 @@ fun SettingsScreen() {
             listOf(
                 "App version" to BuildConfig.VERSION_NAME,
                 "VPN engine" to "OpenVPN® 2.7.8",
-                "TLS library" to "Mbed TLS 3.6.4",
+                "TLS library" to "Mbed TLS 3.6.7",
                 "Compression" to "LZ4 1.10.0, LZO 2.10",
             ).forEach { (k, v) ->
                 Row {

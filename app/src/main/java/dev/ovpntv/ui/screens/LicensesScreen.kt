@@ -44,7 +44,7 @@ private data class Component(val name: String, val license: String, val file: St
 
 private val COMPONENTS = listOf(
     Component("OpenVPN® 2.7.8", "GPL-2.0, with OpenVPN Inc's linking exception", "openvpn.txt"),
-    Component("Mbed TLS 3.6.4", "Used under GPL-2.0-or-later (dual-licensed)", "mbedtls.txt"),
+    Component("Mbed TLS 3.6.7", "Used under GPL-2.0-or-later (dual-licensed)", "mbedtls.txt"),
     Component("LZO 2.10", "GPL-2.0-or-later", "lzo.txt"),
     Component("LZ4 1.10.0 library", "BSD-2-Clause", "lz4.txt"),
     Component("Inter typeface", "SIL Open Font License 1.1", "inter-OFL.txt"),

@@ -119,7 +119,8 @@ class ManagementClient(
     }
 
     companion object {
-        /** Quotes a value for a management command argument. */
-        fun quote(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        /** Quotes a value for a management command argument; line breaks would start a new command, so they go. */
+        fun quote(value: String) =
+            "\"" + value.filterNot { it == '\n' || it == '\r' || it == '\u0000' }.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
     }
 }

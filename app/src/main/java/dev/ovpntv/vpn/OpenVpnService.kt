@@ -180,7 +180,7 @@ class OpenVpnService : VpnService() {
         ReconnectScheduler.scheduleResume(this, resumeAt)
         releasePauseWakeLock()
         pauseWakeLock = getSystemService(PowerManager::class.java)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ovpntv:scheduled-reconnect")
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "plainvpn:scheduled-reconnect")
             .apply { acquire(offlineMillis + 60_000) }
         main.postDelayed(resumeRunnable, offlineMillis)
     }
@@ -315,11 +315,13 @@ class OpenVpnService : VpnService() {
                 val command = listOf(
                     exe.absolutePath,
                     "--config", configFile.absolutePath,
+                    // Options after --config override the profile's, so no profile can run programs.
+                    "--script-security", "0",
                     "--management", socketFile.absolutePath, "unix",
                     "--management-hold",
                     "--management-query-passwords",
                     "--persist-tun",
-                    "--setenv", "IV_GUI_VER", "ovpntv ${BuildConfig.VERSION_NAME}",
+                    "--setenv", "IV_GUI_VER", "plainVPN ${BuildConfig.VERSION_NAME}",
                 )
                 VpnState.log("Starting OpenVPN for \"${profile.name}\" (${profile.serverLabel} ${profile.protocol})")
                 val p = ProcessBuilder(command)

@@ -211,7 +211,7 @@ object Updater {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 15_000
         conn.readTimeout = 30_000
-        conn.setRequestProperty("User-Agent", "OpenVPN-TV/${BuildConfig.VERSION_CODE}")
+        conn.setRequestProperty("User-Agent", "plainVPN/${BuildConfig.VERSION_CODE}")
         // GitHub redirects release downloads to its CDN (https to https, which this follows).
         conn.instanceFollowRedirects = true
         if (conn.responseCode != HttpURLConnection.HTTP_OK) {

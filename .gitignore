@@ -6,3 +6,4 @@ app/.cxx/
 local.properties
 keystore.properties
 *.jks
+__pycache__/

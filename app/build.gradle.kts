@@ -15,7 +15,7 @@ android {
         applicationId = "dev.ovpntv"
         minSdk = 24
         targetSdk = 35
-        versionCode = 26
+        versionCode = 27
         versionName = "1.5.1"
 
         ndk {
@@ -69,6 +69,8 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
+            // TV tests only (`-PdebuggableRelease` lets `run-as` kill OpenVPN); release.py refuses such an APK.
+            isDebuggable = project.hasProperty("debuggableRelease")
         }
     }
 

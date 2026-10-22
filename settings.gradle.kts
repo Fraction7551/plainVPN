@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "OpenVPN-TV"
+rootProject.name = "plainVPN"
 include(":app")

@@ -69,8 +69,10 @@ object VpnState {
     }
 
     fun log(line: String) {
-        val stamped = "${timeFormat.format(Date())}  $line"
+        // SimpleDateFormat isn't thread-safe, and OpenVPN's output, the management socket
+        // and the UI all log from different threads.
         synchronized(this) {
+            val stamped = "${timeFormat.format(Date())}  $line"
             val current = _log.value
             _log.value = if (current.size >= MAX_LOG_LINES) current.drop(current.size - MAX_LOG_LINES + 1) + stamped
             else current + stamped
@@ -78,7 +80,7 @@ object VpnState {
     }
 
     fun clearLog() {
-        _log.value = emptyList()
+        synchronized(this) { _log.value = emptyList() }
     }
 
     private const val MAX_LOG_LINES = 600

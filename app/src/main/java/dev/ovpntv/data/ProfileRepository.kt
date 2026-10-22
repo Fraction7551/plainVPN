@@ -1,6 +1,7 @@
 package dev.ovpntv.data
 
 import android.content.Context
+import dev.ovpntv.vpn.ConfigSanitizer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -130,7 +131,7 @@ data class ConfigInfo(
             var hasRemote = false
             var unsupported: String? = null
 
-            for (tokens in directives(config)) {
+            for (tokens in ConfigSanitizer.directives(config)) {
                 when (tokens[0]) {
                     "remote" -> if (!hasRemote) {
                         hasRemote = true
@@ -153,25 +154,6 @@ data class ConfigInfo(
                 unsupported = "This file has no 'remote' line, so it is not an OpenVPN client profile."
             }
             return ConfigInfo(host, port ?: "1194", proto ?: "udp", needsCreds, unsupported)
-        }
-
-        /** Tokenised directive lines, skipping comments and inline <blocks>. */
-        fun directives(config: String): Sequence<List<String>> = sequence {
-            var inBlock: String? = null
-            for (raw in config.lineSequence()) {
-                val line = raw.trim()
-                if (inBlock != null) {
-                    if (line == "</$inBlock>") inBlock = null
-                    continue
-                }
-                if (line.startsWith("<") && line.endsWith(">") && !line.startsWith("</")) {
-                    inBlock = line.substring(1, line.length - 1)
-                    continue
-                }
-                if (line.isEmpty() || line.startsWith("#") || line.startsWith(";")) continue
-                val tokens = line.removePrefix("--").split(Regex("\\s+"))
-                yield(tokens)
-            }
         }
     }
 }

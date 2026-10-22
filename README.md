@@ -9,7 +9,7 @@ OpenVPN® is a registered trademark of OpenVPN Inc. plainVPN is not affiliated w
 ```
 plainVPN/
   openvpn-src/openvpn-2.7.8     upstream OpenVPN source (unmodified)
-  deps/                         mbedtls-3.6.4, lz4-1.10.0, lzo-2.10 (unmodified)
+  deps/                         mbedtls-3.6.7, lz4-1.10.0, lzo-2.10 (unmodified)
   toolchain/                    JDK 21 used for the build
   plainvpn/                     this app (package id dev.ovpntv)
     app/src/main/cpp/           CMake build of OpenVPN + deps, Android config.h
