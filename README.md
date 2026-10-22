@@ -57,3 +57,13 @@ OpenVPN is compiled as a PIE executable named `libovpnexec.so`, so that Android 
 * `dev tap` profiles are rejected, because Android's VPN API is layer 3 only.
 * mbed TLS has no PKCS#12 support, so `pkcs12` profiles fail. Password-protected private keys and static-challenge (OTP) logins are not handled yet.
 * While the schedule has the VPN down, traffic goes out unprotected unless "Block VPN apps while reconnecting" is on. For a full kill switch, turn on Android's "Always-on VPN" and "Block connections without VPN" where the TV supports them.
+
+## License
+
+Copyright (c) 2026 Fraction7551
+
+plainVPN is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
+
+plainVPN is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY**; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. It is provided "as is", and the author is not liable for any damages arising from its use (GPL-3.0 sections 15 and 16).
+
+The bundled components keep their own licences, shown in the app under Settings → Open-source licences: OpenVPN® 2.7.8 (GPL-2.0 with OpenVPN Inc's linking exception), Mbed TLS 3.6.7 (used under GPL-2.0-or-later), LZO 2.10 (GPL-2.0-or-later), LZ4 1.10.0 (BSD-2-Clause), Inter (SIL OFL 1.1), and Kotlin, kotlinx.coroutines, AndroidX and Jetpack Compose (Apache-2.0). OpenVPN runs as a separate program; its complete source and build files are attached to every release as `source.zip`.

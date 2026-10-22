@@ -36,13 +36,14 @@ import dev.ovpntv.ui.theme.Dimens
 import dev.ovpntv.ui.theme.Plain
 
 /**
- * Third-party notices. The texts live in assets/licenses, copied unchanged from the bundled
- * sources (openvpn-src, deps) and the Inter font. The app's source is the public repo, and the
+ * plainVPN's own licence (GPL-3.0) and third-party notices. The texts live in assets/licenses,
+ * copied unchanged from gnu.org, the bundled sources (openvpn-src, deps) and the Inter font. The app's source is the public repo, and the
  * GPL parts' complete source ships as source.zip on each GitHub release.
  */
 private data class Component(val name: String, val license: String, val file: String)
 
 private val COMPONENTS = listOf(
+    Component("plainVPN", "GPL-3.0 · © 2026 Fraction7551", "gpl-3.0.txt"),
     Component("OpenVPN® 2.7.8", "GPL-2.0, with OpenVPN Inc's linking exception", "openvpn.txt"),
     Component("Mbed TLS 3.6.7", "Used under GPL-2.0-or-later (dual-licensed)", "mbedtls.txt"),
     Component("LZO 2.10", "GPL-2.0-or-later", "lzo.txt"),
@@ -78,8 +79,9 @@ fun LicensesScreen(onBack: () -> Unit) {
         Column(Modifier.width(360.dp)) {
             ScreenTitle("Open-source licences")
             Text(
-                "plainVPN includes the components below. Its source code is at $SOURCE_URL, and the source for " +
-                    "OpenVPN, Mbed TLS, LZO and LZ4 as built into this app is in source.zip on each release there.",
+                "plainVPN is free software under the GPL-3.0, provided as is with no warranty. Its source code is at " +
+                    "$SOURCE_URL, and the source for OpenVPN, Mbed TLS, LZO and LZ4 as built into this app is in " +
+                    "source.zip on each release there.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Plain.Muted,
                 modifier = Modifier.padding(bottom = Dimens.mediumPadding),

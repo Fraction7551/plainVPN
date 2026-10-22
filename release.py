@@ -79,18 +79,21 @@ def check_not_debuggable(apk):
         sys.exit("The APK is debuggable (or couldn't be checked). Not publishing.\n" + out.stderr)
 
 
-# GPL compliance: every release ships the OpenVPN executable (OpenVPN and LZO are GPL-2.0, and
-# Mbed TLS is used under its GPL-2.0-or-later option), so each release carries the complete
-# corresponding source: the unmodified upstream archives plus the build files that turn them
-# into libovpnexec.so. The Kotlin app is a separate program and isn't included.
+# GPL compliance: plainVPN itself is GPL-3.0, and every release ships the OpenVPN executable
+# (OpenVPN and LZO are GPL-2.0, and Mbed TLS is used under its GPL-2.0-or-later option), so each
+# release carries the complete corresponding source: the app at the exact commit that was built,
+# the unmodified upstream archives, and the build files that turn them into libovpnexec.so.
 UPSTREAM = [
     ("openvpn-src", "openvpn-2.7.8.zip"),
     ("deps", "mbedtls-3.6.7.tar.bz2"),
     ("deps", "lzo-2.10.tar.gz"),
     ("deps", "lz4-1.10.0.tar.gz"),
 ]
-SOURCE_README = """plainVPN: source code for the bundled OpenVPN executable
-==========================================================
+SOURCE_README = """plainVPN: complete source code for this release
+===============================================
+
+plainvpn-app.zip is the plainVPN app (GPL-3.0-or-later, see LICENSE inside) at the exact commit
+this release was built from.
 
 plainVPN for Android TV runs OpenVPN as a separate executable (libovpnexec.so in the APK).
 That executable is built from the unmodified upstream sources in upstream/:
@@ -120,8 +123,11 @@ plainVPN is not affiliated with OpenVPN Inc.
 def make_source_zip(dist):
     path = os.path.join(dist, SOURCE_ASSET)
     cpp = os.path.join(APP, "app", "src", "main", "cpp")
+    app_source = subprocess.run(["git", "-C", APP, "archive", "--format=zip", "--prefix=plainvpn/", "HEAD"],
+                                capture_output=True, check=True).stdout
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("README.txt", SOURCE_README)
+        z.writestr("plainvpn-app.zip", app_source)
         for folder, name in UPSTREAM:
             src = os.path.join(ROOT, folder, name)
             if not os.path.isfile(src):
@@ -130,7 +136,7 @@ def make_source_zip(dist):
         z.write(os.path.join(cpp, "CMakeLists.txt"), "build/CMakeLists.txt")
         z.write(os.path.join(cpp, "openvpn-config", "config.h"), "build/openvpn-config/config.h")
         licenses = os.path.join(APP, "app", "src", "main", "assets", "licenses")
-        for name in ("openvpn.txt", "mbedtls.txt", "lzo.txt", "lz4.txt"):
+        for name in ("gpl-3.0.txt", "openvpn.txt", "mbedtls.txt", "lzo.txt", "lz4.txt"):
             z.write(os.path.join(licenses, name), f"licenses/{name}")
     return path
 
@@ -155,6 +161,10 @@ def main():
     latest = published_version_code()
     if code <= latest:
         sys.exit(f"versionCode {code} is not newer than the published {latest}. Bump it in app/build.gradle.kts.")
+    # The published source (plainvpn-app.zip) is HEAD, so the APK must be built from exactly that.
+    dirty = subprocess.run(["git", "-C", APP, "status", "--porcelain"], capture_output=True, text=True).stdout.strip()
+    if dirty and not args.dry_run:
+        sys.exit("Uncommitted changes: commit them first, so the APK matches the published source.\n" + dirty)
 
     apk = build()
     check_signature(apk)
