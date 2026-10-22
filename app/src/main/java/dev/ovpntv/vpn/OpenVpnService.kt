@@ -61,10 +61,13 @@ class OpenVpnService : VpnService() {
             ACTION_DISCONNECT -> disconnect()
             ACTION_SCHEDULED_CYCLE -> scheduledCycle()
             ACTION_RESUME -> resumeAfterPause()
+            ACTION_RESTORE_BLOCK -> restoreBlock()
             // Sticky restart after the app process died: only come back if the tunnel was wanted.
             null -> if (Settings.wantConnected) {
                 VpnState.log("App was restarted by the system, restoring the VPN")
                 connect(null)
+            } else if (Settings.keptBlockedError != null) {
+                restoreBlock()
             } else {
                 finish(TunnelState.Disconnected())
             }
@@ -100,6 +103,7 @@ class OpenVpnService : VpnService() {
         if (!isRestart) crashRestarts = 0
         ReconnectScheduler.cancelResume(this)
         releasePauseWakeLock()
+        Settings.keptBlockedError = null
 
         val profile = ProfileRepository.get(profileId ?: Settings.selectedProfileId.value)
         when {
@@ -112,7 +116,7 @@ class OpenVpnService : VpnService() {
         profile!!
 
         // Block before the old tunnel goes away so there is no gap for VPN apps.
-        startBlocking()
+        startBlocking(profile.name)
         session?.let { old -> stopSession(old) {} }
         Settings.wantConnected = true
         Settings.setSelectedProfile(profile.id)
@@ -133,6 +137,7 @@ class OpenVpnService : VpnService() {
         ReconnectScheduler.cancelResume(this)
         releasePauseWakeLock()
         Settings.wantConnected = false
+        Settings.keptBlockedError = null
         unregisterNetworkCallback()
         val s = session
         session = null
@@ -167,7 +172,7 @@ class OpenVpnService : VpnService() {
         session = null
         VpnState.set(TunnelState.ScheduledPause(running.profile.name, resumeAt))
         updateNotification()
-        startBlocking()
+        startBlocking(running.profile.name)
         stopSession(running) {}
 
         // The alarm survives process death; the handler is the fast path for short pauses,
@@ -195,6 +200,15 @@ class OpenVpnService : VpnService() {
         }
     }
 
+    /** After a reboot, app update or process restart: put back a block that was kept for an error. */
+    private fun restoreBlock() {
+        if (session != null || blockTun != null) return
+        val error = Settings.keptBlockedError ?: return finish(TunnelState.Disconnected())
+        VpnState.log("Keeping VPN apps blocked after the last error")
+        startBlocking(ProfileRepository.get(Settings.selectedProfileId.value)?.name ?: getString(R.string.app_name))
+        finish(TunnelState.Disconnected(error.ifEmpty { null }), keepBlocking = true)
+    }
+
     private fun failAndStop(message: String) {
         VpnState.log(message)
         session?.let { stopSession(it) {} }
@@ -213,6 +227,7 @@ class OpenVpnService : VpnService() {
         if (!keepBlocking) stopBlocking()
         VpnState.set(state)
         if (blockTun != null) {
+            Settings.keptBlockedError = (state as? TunnelState.Disconnected)?.error.orEmpty()
             updateNotification()
             return
         }
@@ -250,7 +265,7 @@ class OpenVpnService : VpnService() {
             val delay = if (delaySeconds < 60) "${delaySeconds}s" else "${delaySeconds / 60} min"
             val why = s.lastError?.let { ": $it" } ?: " (exit code $exitCode)"
             VpnState.log("OpenVPN stopped unexpectedly$why. Retry $crashRestarts in $delay")
-            startBlocking()
+            startBlocking(s.profile.name)
             VpnState.set(TunnelState.Connecting("VPN dropped, retrying in $delay", s.profile.name))
             updateNotification()
             restartPending = true
@@ -313,18 +328,20 @@ class OpenVpnService : VpnService() {
                     .apply { environment()["TMPDIR"] = dir.absolutePath }
                     .start()
                 process = p
-                Thread({
+                val logThread = Thread({
                     p.inputStream.bufferedReader().forEachLine {
                         VpnState.log(it)
                         // A bad profile fails the same way every time.
                         if (it.contains("Options error:")) {
-                            lastError = "The profile has an error: ${it.substringAfter("Options error:").trim()}"
+                            lastError = "The profile has an error: ${optionsError(it)}"
                             needsUser = true
                         }
                     }
-                }, "ovpn-log").start()
+                }, "ovpn-log").apply { start() }
                 Thread({
                     val code = p.waitFor()
+                    // Let the last output lines (an Options error, say) land before deciding to retry.
+                    logThread.join(2000)
                     main.post { onProcessExit(this, code) }
                 }, "ovpn-wait").start()
 
@@ -336,8 +353,15 @@ class OpenVpnService : VpnService() {
                 client.send("bytecount 2")
                 client.send("hold release")
             } catch (e: Exception) {
-                failForUser("Could not start OpenVPN: ${e.message}")
-                process?.destroy() ?: main.post { onProcessExit(this, -1) }
+                if (process == null) {
+                    failForUser("Could not start OpenVPN: ${e.message}")
+                    main.post { onProcessExit(this, -1) }
+                } else {
+                    // OpenVPN exited early (its output says why) or never opened the socket;
+                    // onProcessExit decides from that whether to retry.
+                    if (isAlive()) VpnState.log("${e.message}, restarting OpenVPN")
+                    process?.destroy()
+                }
             }
         }
 
@@ -491,13 +515,15 @@ class OpenVpnService : VpnService() {
      * Opens a tunnel for the same apps as the real one that leads nowhere: their traffic is
      * queued on an fd nobody reads, so they stay offline instead of using the plain network.
      * Our own app is always left out so OpenVPN can still resolve and reach the server.
+     * Android may keep this tunnel's network for the real one, session name included,
+     * so it carries the profile's name ([sessionName]) from the start.
      */
-    private fun startBlocking() {
+    private fun startBlocking(sessionName: String) {
         if (blockTun != null || !Settings.blockWhileReconnecting.value) return
         val split = Settings.splitTunnel.value
         val installed = installedApps(split)
         val builder = Builder()
-            .setSession("Blocked until the VPN is back")
+            .setSession(sessionName)
             .setConfigureIntent(mainActivityIntent())
             .addAddress(BLOCK_ADDRESS4, 32)
             .addAddress(BLOCK_ADDRESS6, 128)
@@ -647,6 +673,7 @@ class OpenVpnService : VpnService() {
         const val ACTION_DISCONNECT = "dev.ovpntv.DISCONNECT"
         const val ACTION_SCHEDULED_CYCLE = "dev.ovpntv.SCHEDULED_CYCLE"
         const val ACTION_RESUME = "dev.ovpntv.RESUME"
+        const val ACTION_RESTORE_BLOCK = "dev.ovpntv.RESTORE_BLOCK"
         const val EXTRA_PROFILE_ID = "profile_id"
         private const val NOTIFICATION_ID = 1
         /** Waits between automatic restarts; the last one repeats until the tunnel is back. */
@@ -671,6 +698,14 @@ class OpenVpnService : VpnService() {
         )
 
         private fun stageLabel(state: String) = stageLabels[state] ?: state.lowercase().replaceFirstChar { it.uppercase() }
+
+        /**
+         * "Options error: Unrecognized option ... in /data/.../profile.ovpn:6: foo (2.7.8)" becomes
+         * "Unrecognized option ...: foo", so the part that names the problem fits on Home.
+         */
+        private fun optionsError(line: String) = line.substringAfter("Options error:").trim()
+            .replace(Regex(""" in \S+:\d+:"""), ":")
+            .replace(Regex("""\s*\(\d+\.\d+[^)]*\)$"""), "")
 
         fun connect(context: Context, profileId: String? = null) = start(
             context, Intent(context, OpenVpnService::class.java).setAction(ACTION_CONNECT).putExtra(EXTRA_PROFILE_ID, profileId),

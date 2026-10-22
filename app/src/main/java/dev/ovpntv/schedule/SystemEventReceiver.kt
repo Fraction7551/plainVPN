@@ -25,6 +25,15 @@ class SystemEventReceiver : BroadcastReceiver() {
         ) {
             if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) VpnState.log("App was updated, restoring the VPN")
             OpenVpnService.connect(context)
+        } else if (intent.action in RESTORE_BLOCK_ACTIONS && Settings.keptBlockedError != null &&
+            VpnService.prepare(context) == null
+        ) {
+            // VPN apps were held offline after an error; a reboot or update must not let them out.
+            OpenVpnService.start(context, Intent(context, OpenVpnService::class.java).setAction(OpenVpnService.ACTION_RESTORE_BLOCK))
         }
+    }
+
+    companion object {
+        private val RESTORE_BLOCK_ACTIONS = setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED)
     }
 }

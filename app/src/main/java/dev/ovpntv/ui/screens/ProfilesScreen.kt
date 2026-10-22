@@ -196,8 +196,8 @@ private fun ProfileActionsDialog(
                 TvButton("Use as default", onSelect)
                 if (profile.needsCredentials) TvButton(if (profile.hasCredentials) "Change username & password" else "Add username & password", onCredentials)
                 TvButton("Rename", onRename)
-                if (confirmDelete) NegativeButton("Press again to delete", onDelete)
-                else NegativeButton("Delete", { confirmDelete = true })
+                // One button whose label changes, so focus stays on it for the second press.
+                NegativeButton(if (confirmDelete) "Press again to delete" else "Delete", { if (confirmDelete) onDelete() else confirmDelete = true })
             }
         },
         confirmButton = {},

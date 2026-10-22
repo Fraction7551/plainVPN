@@ -63,6 +63,17 @@ object Settings {
         get() = prefs.getBoolean(KEY_WANT_CONNECTED, false)
         set(value) = prefs.edit().putBoolean(KEY_WANT_CONNECTED, value).apply()
 
+    /**
+     * Set while VPN apps are kept blocked after an error the user has to fix, so the block
+     * can be put back after a reboot or app update. Holds the error shown on Home ("" if none).
+     */
+    var keptBlockedError: String?
+        get() = if (prefs.getBoolean(KEY_KEPT_BLOCKED, false)) prefs.getString(KEY_KEPT_BLOCKED_ERROR, "") else null
+        set(value) = prefs.edit()
+            .putBoolean(KEY_KEPT_BLOCKED, value != null)
+            .putString(KEY_KEPT_BLOCKED_ERROR, value.orEmpty())
+            .apply()
+
     fun init(context: Context) {
         prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _schedule.value = ReconnectSchedule(
@@ -128,6 +139,8 @@ object Settings {
     private const val KEY_CONNECT_ON_BOOT = "connect_on_boot"
     private const val KEY_WANT_CONNECTED = "want_connected"
     private const val KEY_BLOCK_WHILE_RECONNECTING = "block_while_reconnecting"
+    private const val KEY_KEPT_BLOCKED = "kept_blocked"
+    private const val KEY_KEPT_BLOCKED_ERROR = "kept_blocked_error"
     private const val KEY_SPLIT_MODE = "split_mode"
     private const val KEY_SPLIT_APPS = "split_apps"
 }
