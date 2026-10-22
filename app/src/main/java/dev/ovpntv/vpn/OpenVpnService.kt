@@ -125,9 +125,9 @@ class OpenVpnService : VpnService() {
         updateNotification()
         registerNetworkCallback()
 
-        val s = Session(profile, ++sessionCounter)
+        val s = newSession(profile)
         session = s
-        Thread({ s.start() }, "ovpn-start").start()
+        Thread({ s.start() }, "vpn-start").start()
     }
 
     private fun disconnect(error: String? = null) {
@@ -237,23 +237,26 @@ class OpenVpnService : VpnService() {
 
     // ---- Session handling ---------------------------------------------------
 
+    private fun newSession(profile: Profile): Session = OpenVpnSession(profile, ++sessionCounter)
+
     private fun stopSession(s: Session, then: () -> Unit) {
         s.stopping = true
-        s.management?.send("signal SIGTERM")
+        s.requestStop()
         Thread({
             val deadline = System.currentTimeMillis() + 4000
             while (s.isAlive() && System.currentTimeMillis() < deadline) Thread.sleep(50)
             if (s.isAlive()) {
-                VpnState.log("OpenVPN did not exit in time, killing it")
-                s.process?.destroy()
+                VpnState.log("${s.engineName} did not stop in time, killing it")
+                s.kill()
             }
-            s.management?.close()
+            s.release()
             main.post(then)
-        }, "ovpn-stop").start()
+        }, "vpn-stop").start()
     }
 
-    private fun onProcessExit(s: Session, exitCode: Int) {
-        s.management?.close()
+    /** The engine of [s] stopped by itself ([exitCode] is engine-specific, for the log). */
+    private fun onSessionEnded(s: Session, exitCode: Int) {
+        s.release()
         if (session !== s || s.stopping) return
         session = null
 
@@ -264,7 +267,7 @@ class OpenVpnService : VpnService() {
             crashRestarts++
             val delay = if (delaySeconds < 60) "${delaySeconds}s" else "${delaySeconds / 60} min"
             val why = s.lastError?.let { ": $it" } ?: " (exit code $exitCode)"
-            VpnState.log("OpenVPN stopped unexpectedly$why. Retry $crashRestarts in $delay")
+            VpnState.log("${s.engineName} stopped unexpectedly$why. Retry $crashRestarts in $delay")
             startBlocking(s.profile.name)
             VpnState.set(TunnelState.Connecting("VPN dropped, retrying in $delay", s.profile.name))
             updateNotification()
@@ -275,30 +278,120 @@ class OpenVpnService : VpnService() {
 
         Settings.wantConnected = false
         unregisterNetworkCallback()
-        val reason = s.lastError ?: "OpenVPN could not start (exit code $exitCode). See Logs."
+        val reason = s.lastError ?: "${s.engineName} could not start (exit code $exitCode). See Logs."
         VpnState.log(reason)
         finish(TunnelState.Disconnected(reason), keepBlocking = true)
     }
 
-    private inner class Session(val profile: Profile, id: Int) {
-        private val dir = File(cacheDir, "run").apply { mkdirs() }
-        private val socketFile = File(dir, "mgmt-$id.sock")
-        private val configFile = File(dir, "profile.ovpn")
-        @Volatile var process: Process? = null
-        @Volatile var management: ManagementClient? = null
+    /**
+     * Opens the real tunnel for [s]: [configure] adds the engine's addresses, routes and DNS;
+     * the split tunnel is applied here, and the placeholder block goes once the tunnel is up.
+     */
+    private fun establishTunnel(s: Session, configure: (Builder) -> Unit): ParcelFileDescriptor? {
+        val builder = Builder()
+            .setSession(s.profile.name)
+            .setConfigureIntent(mainActivityIntent())
+        val split = Settings.splitTunnel.value
+        val tunFd = try {
+            configure(builder)
+            applySplitTunnel(builder, split)
+            builder.establish()
+        } catch (e: Exception) {
+            VpnState.log("Could not create the VPN interface: ${e.message}")
+            null
+        } ?: return null
+        // The real tunnel has replaced the placeholder, so it can go.
+        main.post { if (session === s && !s.stopping) stopBlocking() }
+        VpnState.setAppliedSplit(split)
+        return tunFd
+    }
+
+    /**
+     * One connection attempt with one VPN engine. The service owns the tunnel plumbing
+     * (blocking, split tunnel, retries, notification); subclasses only drive their engine.
+     */
+    private abstract inner class Session(val profile: Profile) {
         @Volatile var stopping = false
         @Volatile var lastError: String? = null
         /** [lastError] needs the user to act (credentials, profile, permission), so retrying is pointless. */
         @Volatile var needsUser = false
-        private var tun = TunConfig()
 
-        private fun failForUser(message: String) {
+        /** Shown in log lines and errors, e.g. "OpenVPN". */
+        abstract val engineName: String
+
+        /** Runs on a worker thread; reports progress with [publish] and failures with [ended]. */
+        abstract fun start()
+
+        /** Starts an orderly shutdown; [isAlive] turns false once it is done. */
+        abstract fun requestStop()
+        abstract fun isAlive(): Boolean
+
+        /** Ends the engine at once, after [requestStop] timed out. */
+        abstract fun kill()
+
+        /** Frees what is left after the engine stopped; may be called more than once. */
+        open fun release() {}
+
+        open fun onNetworkChange() {}
+
+        protected fun failForUser(message: String) {
             lastError = message
             needsUser = true
             VpnState.log(message)
         }
 
-        fun isAlive(): Boolean {
+        protected fun current() = session === this && !stopping
+
+        /** Tells the service the engine stopped by itself; it decides whether to retry. */
+        protected fun ended(exitCode: Int) {
+            main.post { onSessionEnded(this, exitCode) }
+        }
+
+        /** Shows a new state for this attempt, if it is still the current one. */
+        protected fun publish(newState: TunnelState) {
+            main.post {
+                if (!current()) return@post
+                if (newState is TunnelState.Connected) {
+                    crashRestarts = 0
+                    // The tunnel comes up at least daily (scheduled reconnect), so this is the
+                    // background check for people who rarely open the app.
+                    Updater.checkIfDue(this@OpenVpnService, maxAgeMillis = 20 * 60 * 60 * 1000L, notify = true)
+                }
+                VpnState.set(newState)
+                updateNotification()
+            }
+        }
+    }
+
+    /** Runs the OpenVPN binary as a child process and answers its management interface. */
+    private inner class OpenVpnSession(profile: Profile, id: Int) : Session(profile) {
+        private val dir = File(cacheDir, "run").apply { mkdirs() }
+        private val socketFile = File(dir, "mgmt-$id.sock")
+        private val configFile = File(dir, "profile.ovpn")
+        @Volatile private var process: Process? = null
+        @Volatile private var management: ManagementClient? = null
+        private var tun = TunConfig()
+
+        override val engineName = "OpenVPN"
+
+        override fun requestStop() {
+            management?.send("signal SIGTERM")
+        }
+
+        override fun kill() {
+            process?.destroy()
+        }
+
+        override fun release() {
+            management?.close()
+        }
+
+        override fun onNetworkChange() {
+            VpnState.log("Network changed, notifying OpenVPN")
+            management?.send("network-change")
+        }
+
+        override fun isAlive(): Boolean {
             val p = process ?: return false
             return try {
                 p.exitValue(); false
@@ -307,7 +400,7 @@ class OpenVpnService : VpnService() {
             }
         }
 
-        fun start() {
+        override fun start() {
             try {
                 dir.listFiles()?.filter { it.name.startsWith("mgmt-") }?.forEach { it.delete() }
                 configFile.writeText(ConfigSanitizer.sanitize(ProfileRepository.configFile(profile).readText()))
@@ -344,7 +437,7 @@ class OpenVpnService : VpnService() {
                     val code = p.waitFor()
                     // Let the last output lines (an Options error, say) land before deciding to retry.
                     logThread.join(2000)
-                    main.post { onProcessExit(this, code) }
+                    ended(code)
                 }, "ovpn-wait").start()
 
                 if (stopping) return
@@ -357,17 +450,15 @@ class OpenVpnService : VpnService() {
             } catch (e: Exception) {
                 if (process == null) {
                     failForUser("Could not start OpenVPN: ${e.message}")
-                    main.post { onProcessExit(this, -1) }
+                    ended(-1)
                 } else {
                     // OpenVPN exited early (its output says why) or never opened the socket;
-                    // onProcessExit decides from that whether to retry.
+                    // onSessionEnded decides from that whether to retry.
                     if (isAlive()) VpnState.log("${e.message}, restarting OpenVPN")
                     process?.destroy()
                 }
             }
         }
-
-        private fun current() = session === this && !stopping
 
         private fun handleLine(line: String) {
             when {
@@ -400,17 +491,7 @@ class OpenVpnService : VpnService() {
                 "EXITING" -> return
                 else -> TunnelState.Connecting(stageLabel(name), profile.name)
             }
-            main.post {
-                if (!current()) return@post
-                if (newState is TunnelState.Connected) {
-                    crashRestarts = 0
-                    // The tunnel comes up at least daily (scheduled reconnect), so this is the
-                    // background check for people who rarely open the app.
-                    Updater.checkIfDue(this@OpenVpnService, maxAgeMillis = 20 * 60 * 60 * 1000L, notify = true)
-                }
-                VpnState.set(newState)
-                updateNotification()
-            }
+            publish(newState)
         }
 
         private fun onPassword(msg: String) {
@@ -483,27 +564,14 @@ class OpenVpnService : VpnService() {
         }
 
         private fun openTun(client: ManagementClient) {
-            val builder = Builder()
-                .setSession(profile.name)
-                .setConfigureIntent(mainActivityIntent())
-            val split = Settings.splitTunnel.value
-            val tunFd = try {
-                tun.apply(builder) { VpnState.log(it) }
-                applySplitTunnel(builder, split)
-                builder.establish()
-            } catch (e: Exception) {
-                VpnState.log("Could not create the VPN interface: ${e.message}")
-                null
-            }
+            val config = tun
             tun = TunConfig()
+            val tunFd = establishTunnel(this) { config.apply(it) { line -> VpnState.log(line) } }
             if (tunFd == null) {
                 failForUser("Android refused to create the VPN interface. Is VPN permission granted?")
                 client.send("needok 'OPENTUN' cancel")
                 return
             }
-            // The real tunnel has replaced the placeholder, so it can go.
-            main.post { if (current()) stopBlocking() }
-            VpnState.setAppliedSplit(split)
             // OpenVPN receives its own copy of the fd; ours is closed right after sending.
             tunFd.use { client.sendWithFd("needok 'OPENTUN' ok", it.fileDescriptor) }
         }
@@ -614,8 +682,7 @@ class OpenVpnService : VpnService() {
         }
         val s = session ?: return
         if (VpnState.state.value is TunnelState.Connected || VpnState.state.value is TunnelState.Connecting) {
-            VpnState.log("Network changed, notifying OpenVPN")
-            s.management?.send("network-change")
+            s.onNetworkChange()
         }
     }
 
