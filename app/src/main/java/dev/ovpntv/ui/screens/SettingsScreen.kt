@@ -97,7 +97,8 @@ fun SettingsScreen() {
             SectionHeader("About")
             listOf(
                 "App version" to BuildConfig.VERSION_NAME,
-                "VPN engine" to "OpenVPN® 2.7.8",
+                "VPN engines" to "OpenVPN® 2.7.8",
+                "" to "WireGuard® (wireguard-go)",
                 "TLS library" to "Mbed TLS 3.6.7",
                 "Compression" to "LZ4 1.10.0, LZO 2.10",
             ).forEach { (k, v) ->
@@ -107,7 +108,8 @@ fun SettingsScreen() {
                 }
             }
             Text(
-                "OpenVPN® is a registered trademark of OpenVPN Inc. plainVPN is not affiliated with OpenVPN Inc.",
+                "OpenVPN® is a registered trademark of OpenVPN Inc. WireGuard® is a registered trademark of " +
+                    "Jason A. Donenfeld. plainVPN is not affiliated with either.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

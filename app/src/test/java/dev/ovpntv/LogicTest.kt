@@ -2,6 +2,8 @@ package dev.ovpntv
 
 import dev.ovpntv.data.ConfigInfo
 import dev.ovpntv.data.InvalidProfileException
+import dev.ovpntv.data.Profile
+import dev.ovpntv.data.ProfileKind
 import dev.ovpntv.data.ProfileRepository
 import dev.ovpntv.importer.LanImportServer
 import dev.ovpntv.data.ReconnectSchedule
@@ -9,6 +11,8 @@ import dev.ovpntv.schedule.ReconnectScheduler
 import dev.ovpntv.vpn.ConfigSanitizer
 import dev.ovpntv.vpn.ManagementClient
 import dev.ovpntv.vpn.TunConfig
+import dev.ovpntv.vpn.WireGuardProfile
+import dev.ovpntv.vpn.WireGuardStats
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -188,6 +192,81 @@ class LogicTest {
     fun managementQuoteStripsLineBreaks() {
         assertEquals("\"pa\\\"ss\"", ManagementClient.quote("pa\"ss"))
         assertEquals("\"abc\"", ManagementClient.quote("a\nb\r\nc"))
+    }
+
+    /** WireGuard's documentation example keys; not real credentials. */
+    private val wgConfig = """
+        [Interface]
+        PrivateKey = yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=
+        Address = 10.2.0.2/32, fd00::2/128
+        DNS = 10.2.0.1
+        PostUp = iptables -A FORWARD -i wg0 -j ACCEPT
+        Table = off
+
+        [Peer]
+        # example server
+        PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
+        AllowedIPs = 0.0.0.0/0, ::/0
+        Endpoint = vpn.example.com:51820
+        PersistentKeepalive = 25
+    """.trimIndent()
+
+    @Test
+    fun wireGuardProfilesAreRecognised() {
+        assertTrue(WireGuardProfile.looksLikeWireGuard(wgConfig))
+        assertFalse(WireGuardProfile.looksLikeWireGuard("client\nremote x 1194\n"))
+        val info = ConfigInfo.parse(wgConfig)
+        assertEquals(ProfileKind.WireGuard, info.kind)
+        assertEquals("vpn.example.com", info.remoteHost)
+        assertEquals("51820", info.remotePort)
+        assertFalse(info.needsCredentials)
+        assertNull(info.unsupportedReason)
+        assertEquals(ProfileKind.OpenVpn, ConfigInfo.parse("remote x 1194\n").kind)
+    }
+
+    @Test
+    fun wireGuardCleanDropsShellCommandsAndUnknownKeys() {
+        val cleaned = WireGuardProfile.clean(wgConfig + "\n[Interface]\nPreDown = rm -rf /\nIncludedApplications = com.example\n")
+        assertFalse(cleaned.text.contains("PostUp") || cleaned.text.contains("PreDown") || cleaned.text.contains("iptables"))
+        assertFalse(cleaned.text.contains("Table") || cleaned.text.contains("IncludedApplications"))
+        assertTrue(cleaned.text.contains("PersistentKeepalive = 25"))
+        assertEquals(listOf("PostUp", "Table", "PreDown", "IncludedApplications"), cleaned.dropped)
+    }
+
+    @Test
+    fun wireGuardParseUsesTheLibraryParser() {
+        val config = WireGuardProfile.parse(wgConfig)
+        assertEquals(1, config.peers.size)
+        assertEquals(2, config.peers[0].allowedIps.size)
+        assertEquals(2, config.`interface`.addresses.size)
+        val uapi = config.toWgUserspaceString()
+        assertTrue(uapi.contains("private_key=") && uapi.contains("persistent_keepalive_interval=25"))
+        assertFalse(uapi.contains("PostUp"))
+    }
+
+    @Test
+    fun wireGuardBadProfilesGiveReadableErrors() {
+        val badKey = wgConfig.replace("yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=", "not-a-key")
+        val e = runCatching { WireGuardProfile.parse(badKey) }.exceptionOrNull()
+        assertTrue(e is InvalidProfileException && e.message!!.startsWith("The WireGuard profile has an error"))
+        val noEndpoint = wgConfig.lines().filterNot { it.startsWith("Endpoint") }.joinToString("\n")
+        assertTrue(ConfigInfo.parse(noEndpoint).unsupportedReason!!.contains("no Endpoint"))
+        assertEquals("[fd00::1]".trim('[', ']') to "51820", WireGuardProfile.endpointOf("[Peer]\nEndpoint = [fd00::1]:51820\n"))
+    }
+
+    @Test
+    fun wireGuardStatsSumPeersAndTakeTheNewestHandshake() {
+        val uapi = "public_key=aa\nlast_handshake_time_sec=100\nrx_bytes=10\ntx_bytes=5\n" +
+            "public_key=bb\nlast_handshake_time_sec=250\nrx_bytes=7\ntx_bytes=1\nerrno=0\n"
+        assertEquals(WireGuardStats(250, 17, 6), WireGuardStats.parse(uapi))
+        assertEquals(WireGuardStats(0, 0, 0), WireGuardStats.parse(""))
+    }
+
+    @Test
+    fun profileEngineLabels() {
+        val base = Profile("id", "n", "h", "1", "udp", false)
+        assertEquals("OpenVPN UDP", base.engineLabel)
+        assertEquals("WireGuard", base.copy(kind = ProfileKind.WireGuard).engineLabel)
     }
 
     @Test

@@ -67,6 +67,13 @@
             </intent-filter>
         </activity>
 
+        <!-- The WireGuard library's own VpnService is unused (plainVPN runs WireGuard inside
+             OpenVpnService). Removed so the app has exactly one VPN service, which keeps
+             Android's always-on VPN pointing at the right one. -->
+        <service
+            android:name="com.wireguard.android.backend.GoBackend$VpnService"
+            tools:node="remove" />
+
         <service
             android:name=".vpn.OpenVpnService"
             android:exported="false"

@@ -205,7 +205,7 @@ label{display:block;font-weight:600;margin:16px 0 6px}input{width:100%;box-sizin
 button{margin-top:24px;width:100%;padding:12px;border:0;border-radius:4px;background:var(--green);color:var(--fg);font-size:16px;font-weight:600}
 #msg{margin-top:16px;font-weight:600}
 </style></head><body><main>
-<h1>Send VPN profiles to your TV</h1><p>Pick one or more .ovpn files and enter the PIN shown on the TV screen.</p>
+<h1>Send VPN profiles to your TV</h1><p>Pick one or more OpenVPN (.ovpn) or WireGuard (.conf) files and enter the PIN shown on the TV screen.</p>
 <label for="f">Profile files</label><input id="f" type="file" accept=".ovpn,.conf" multiple>
 <label for="pin">PIN</label><input id="pin" inputmode="numeric" maxlength="6" autocomplete="off">
 <button id="go">Send to TV</button><div id="msg"></div>

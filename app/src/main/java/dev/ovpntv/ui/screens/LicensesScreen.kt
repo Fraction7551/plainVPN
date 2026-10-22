@@ -48,6 +48,9 @@ private val COMPONENTS = listOf(
     Component("Mbed TLS 3.6.7", "Used under GPL-2.0-or-later (dual-licensed)", "mbedtls.txt"),
     Component("LZO 2.10", "GPL-2.0-or-later", "lzo.txt"),
     Component("LZ4 1.10.0 library", "BSD-2-Clause", "lz4.txt"),
+    Component("WireGuard® tunnel library 1.0.20260102", "Apache-2.0", "apache-2.0.txt"),
+    Component("wireguard-go", "MIT · © WireGuard LLC", "wireguard-go.txt"),
+    Component("Go runtime and x/ libraries", "BSD-3-Clause", "go.txt"),
     Component("Inter typeface", "SIL Open Font License 1.1", "inter-OFL.txt"),
     Component("Kotlin, kotlinx.coroutines, AndroidX and Jetpack Compose", "Apache-2.0", "apache-2.0.txt"),
 )
@@ -81,13 +84,14 @@ fun LicensesScreen(onBack: () -> Unit) {
             Text(
                 "plainVPN is free software under the GPL-3.0, provided as is with no warranty. Its source code is at " +
                     "$SOURCE_URL, and the source for OpenVPN, Mbed TLS, LZO and LZ4 as built into this app is in " +
-                    "source.zip on each release there.",
+                    "source.zip on each release there. WireGuard® is a registered trademark of Jason A. Donenfeld.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Plain.Muted,
                 modifier = Modifier.padding(bottom = Dimens.mediumPadding),
             )
             LazyColumn(verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding), contentPadding = PaddingValues(Dimens.focusOutset)) {
-                items(COMPONENTS, key = { it.file }) { c ->
+                // Keyed by name: several components share one licence text (Apache-2.0).
+                items(COMPONENTS, key = { it.name }) { c ->
                     ListCell(
                         title = c.name,
                         subtitle = c.license,

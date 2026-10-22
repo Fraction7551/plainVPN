@@ -243,7 +243,7 @@ private fun ProfileCard(state: TunnelState, selected: Profile?, hasProfiles: Boo
         Column(Modifier.weight(1f)) {
             Text(name, style = MaterialTheme.typography.titleMedium, color = Plain.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                selected?.let { "via OpenVPN ${it.protocol?.uppercase().orEmpty()} · ${it.serverLabel}".trim() }
+                selected?.let { "via ${it.engineLabel} · ${it.serverLabel}" }
                     ?: if (hasProfiles) "Pick the one to connect with" else "No profile imported yet",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Plain.Muted,

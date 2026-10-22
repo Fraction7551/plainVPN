@@ -2,6 +2,7 @@ package dev.ovpntv.data
 
 import android.content.Context
 import dev.ovpntv.vpn.ConfigSanitizer
+import dev.ovpntv.vpn.WireGuardProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,6 +11,9 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
 import java.util.UUID
+
+/** Which VPN engine a profile runs on; told apart by the file's contents. */
+enum class ProfileKind { OpenVpn, WireGuard }
 
 data class Profile(
     val id: String,
@@ -20,15 +24,23 @@ data class Profile(
     val needsCredentials: Boolean,
     val username: String = "",
     val password: String = "",
+    val kind: ProfileKind = ProfileKind.OpenVpn,
 ) {
     val hasCredentials get() = username.isNotEmpty()
     val serverLabel get() = listOfNotNull(remoteHost, remotePort).joinToString(":").ifEmpty { "Unknown server" }
+
+    /** "OpenVPN UDP" or "WireGuard", for the UI. */
+    val engineLabel get() = when (kind) {
+        ProfileKind.OpenVpn -> "OpenVPN ${protocol?.uppercase().orEmpty()}".trim()
+        ProfileKind.WireGuard -> "WireGuard"
+    }
 }
 
 class InvalidProfileException(message: String) : Exception(message)
 
 /**
- * Stores imported .ovpn profiles under filesDir/profiles/<id>/ as the original
+ * Stores imported profiles (OpenVPN .ovpn or WireGuard .conf; the file is always saved as
+ * config.ovpn, the kind comes from its contents) under filesDir/profiles/<id>/ as the original
  * config plus a small JSON file with the display name and saved credentials.
  */
 object ProfileRepository {
@@ -125,6 +137,7 @@ object ProfileRepository {
             needsCredentials = info.needsCredentials,
             username = meta?.optString("username").orEmpty(),
             password = meta?.optString("password").orEmpty(),
+            kind = info.kind,
         )
     }
 
@@ -139,9 +152,25 @@ data class ConfigInfo(
     val protocol: String?,
     val needsCredentials: Boolean,
     val unsupportedReason: String?,
+    val kind: ProfileKind = ProfileKind.OpenVpn,
 ) {
     companion object {
-        fun parse(config: String): ConfigInfo {
+        fun parse(config: String): ConfigInfo =
+            if (WireGuardProfile.looksLikeWireGuard(config)) parseWireGuard(config) else parseOpenVpn(config)
+
+        /** Validated with the WireGuard library's own parser, so a profile that imports also starts. */
+        private fun parseWireGuard(config: String): ConfigInfo {
+            val (host, port) = WireGuardProfile.endpointOf(config)
+            val unsupported = try {
+                WireGuardProfile.parse(config)
+                null
+            } catch (e: InvalidProfileException) {
+                e.message
+            }
+            return ConfigInfo(host, port ?: "51820", "udp", needsCredentials = false, unsupportedReason = unsupported, kind = ProfileKind.WireGuard)
+        }
+
+        private fun parseOpenVpn(config: String): ConfigInfo {
             var host: String? = null
             var port: String? = null
             var proto: String? = null
@@ -169,7 +198,7 @@ data class ConfigInfo(
                 }
             }
             if (!hasRemote && unsupported == null) {
-                unsupported = "This file has no 'remote' line, so it is not an OpenVPN client profile."
+                unsupported = "This isn't a VPN profile: an OpenVPN profile needs a 'remote' line, a WireGuard one an [Interface] section."
             }
             return ConfigInfo(host, port ?: "1194", proto ?: "udp", needsCreds, unsupported)
         }

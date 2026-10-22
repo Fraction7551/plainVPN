@@ -15,8 +15,8 @@ android {
         applicationId = "dev.ovpntv"
         minSdk = 24
         targetSdk = 35
-        versionCode = 27
-        versionName = "1.5.1"
+        versionCode = 28
+        versionName = "1.6.0"
 
         ndk {
             // armeabi-v7a/arm64-v8a cover real TV boxes; x86/x86_64 cover the emulator.
@@ -40,6 +40,14 @@ android {
     packaging {
         // The OpenVPN executable must be extracted to disk so it can be exec()'d.
         jniLibs.useLegacyPackaging = true
+        // The WireGuard library also ships wg and wg-quick, command-line tools for rooted
+        // devices; plainVPN only uses libwg-go.so, so they stay out of the APK.
+        jniLibs.excludes += setOf("**/libwg.so", "**/libwg-quick.so")
+    }
+
+    testOptions {
+        // The WireGuard config parser touches android.os.Build; plain JVM tests get defaults.
+        unitTests.isReturnDefaultValues = true
     }
 
     // Release key comes from ../keystore.properties (never committed); without it,
@@ -67,7 +75,7 @@ android {
             // R8 matters a lot for Compose on low-end TV boxes; nothing here uses reflection.
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
             // TV tests only (`-PdebuggableRelease` lets `run-as` kill OpenVPN); release.py refuses such an APK.
             isDebuggable = project.hasProperty("debuggableRelease")
@@ -107,5 +115,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    // WireGuard engine (wireguard-go) and config parser. Pinned: WireGuardEngine calls its JNI
+    // functions by name, so check WireGuard.kt before changing the version.
+    implementation("com.wireguard.android:tunnel:1.0.20260102")
 }
 

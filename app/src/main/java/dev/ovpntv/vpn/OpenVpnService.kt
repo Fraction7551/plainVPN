@@ -16,13 +16,17 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import android.system.Os
+import android.system.OsConstants
 import androidx.core.app.NotificationCompat
+import com.wireguard.config.Config
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import dev.ovpntv.BuildConfig
 import dev.ovpntv.OvpnTvApp
 import dev.ovpntv.R
+import dev.ovpntv.data.InvalidProfileException
 import dev.ovpntv.data.Profile
+import dev.ovpntv.data.ProfileKind
 import dev.ovpntv.data.ProfileRepository
 import dev.ovpntv.data.Settings
 import dev.ovpntv.data.SplitMode
@@ -32,13 +36,16 @@ import dev.ovpntv.ui.MainActivity
 import dev.ovpntv.update.Updater
 import java.io.File
 import java.io.FileDescriptor
+import java.net.Inet4Address
+import java.net.Inet6Address
 import java.text.DateFormat
 import java.util.Date
 
 /**
- * Runs the OpenVPN binary as a child process and answers its management
- * interface requests (routes, DNS, socket protection, tun fd) using the
- * Android VpnService API.
+ * plainVPN's VpnService. It owns the tunnel plumbing (placeholder block, split tunnel,
+ * retries, schedule, notification) and runs each connection on an engine: OpenVPN as a
+ * child process driven over its management interface, or WireGuard (wireguard-go) in
+ * process. The class keeps its original name: Android's always-on VPN setting refers to it.
  */
 class OpenVpnService : VpnService() {
     private val main = Handler(Looper.getMainLooper())
@@ -237,7 +244,10 @@ class OpenVpnService : VpnService() {
 
     // ---- Session handling ---------------------------------------------------
 
-    private fun newSession(profile: Profile): Session = OpenVpnSession(profile, ++sessionCounter)
+    private fun newSession(profile: Profile): Session = when (profile.kind) {
+        ProfileKind.OpenVpn -> OpenVpnSession(profile, ++sessionCounter)
+        ProfileKind.WireGuard -> WireGuardSession(profile)
+    }
 
     private fun stopSession(s: Session, then: () -> Unit) {
         s.stopping = true
@@ -574,6 +584,167 @@ class OpenVpnService : VpnService() {
             }
             // OpenVPN receives its own copy of the fd; ours is closed right after sending.
             tunFd.use { client.sendWithFd("needok 'OPENTUN' ok", it.fileDescriptor) }
+        }
+    }
+
+    /**
+     * Runs a WireGuard profile on wireguard-go, inside this process. The service opens the
+     * tunnel (so blocking and split tunnelling work as with OpenVPN) and hands its fd over.
+     * WireGuard has no "connected" event: the session counts as connected after the first
+     * handshake with the server, which it checks every second or two.
+     */
+    private inner class WireGuardSession(profile: Profile) : Session(profile) {
+        private val lock = Any()
+        @Volatile private var handle = -1
+        @Volatile private var watcher: Thread? = null
+
+        override val engineName = "WireGuard"
+
+        override fun start() {
+            try {
+                val text = ProfileRepository.configFile(profile).readText()
+                WireGuardProfile.clean(text).dropped.forEach { VpnState.log("WireGuard profile: ignoring $it") }
+                val config = WireGuardProfile.parse(text)
+                VpnState.log("Starting WireGuard for \"${profile.name}\" (${profile.serverLabel})")
+                publish(TunnelState.Connecting("Resolving server", profile.name))
+                val server = resolveEndpoints(config) ?: return ended(-2)
+                val settings = config.toWgUserspaceString()
+                if (stopping) return
+
+                val tunFd = establishTunnel(this) { configure(it, config) }
+                if (tunFd == null) {
+                    failForUser("Android refused to create the VPN interface. Is VPN permission granted?")
+                    return ended(-1)
+                }
+                val h = synchronized(lock) {
+                    if (stopping) {
+                        runCatching { tunFd.close() }
+                        return
+                    }
+                    WireGuardEngine.turnOn(profile.name, tunFd.detachFd(), settings).also { handle = it }
+                }
+                if (h < 0) {
+                    handle = -1
+                    failForUser("WireGuard couldn't start the tunnel (error $h). See Logs.")
+                    return ended(h)
+                }
+                // Its own UDP sockets must not loop back into the tunnel.
+                listOf(WireGuardEngine.socketV4(h), WireGuardEngine.socketV6(h)).filter { it >= 0 }.forEach {
+                    if (!protect(it)) VpnState.log("protect() failed for a WireGuard socket")
+                }
+                VpnState.log("WireGuard ${WireGuardEngine.version().orEmpty()} is running, waiting for the server's handshake".replace("  ", " "))
+                publish(TunnelState.Connecting("Waiting for the server", profile.name))
+                watcher = Thread({ watch(h, config, server) }, "wg-watch").apply { start() }
+            } catch (e: InvalidProfileException) {
+                failForUser(e.message.orEmpty())
+                ended(-1)
+            } catch (e: Throwable) {
+                lastError = "WireGuard failed to start: ${e.message ?: e.javaClass.simpleName}"
+                VpnState.log(lastError!!)
+                ended(-3)
+            }
+        }
+
+        /**
+         * Resolves every peer's Endpoint before the tunnel opens (our own app is outside the
+         * placeholder block, so this uses the normal network). Null when it can't: no internet
+         * or DNS yet, which the service retries with its usual backoff.
+         */
+        private fun resolveEndpoints(config: Config): String? {
+            var first: String? = null
+            for (peer in config.peers) {
+                val endpoint = peer.endpoint.orElse(null) ?: continue
+                var resolved: com.wireguard.config.InetEndpoint? = null
+                for (attempt in 1..5) {
+                    if (stopping) return null
+                    resolved = endpoint.resolved.orElse(null)
+                    if (resolved != null) break
+                    Thread.sleep(1000)
+                }
+                if (resolved == null) {
+                    lastError = "Couldn't find the WireGuard server ${endpoint.host}. Is the internet working?"
+                    VpnState.log(lastError!!)
+                    return null
+                }
+                if (first == null) first = resolved.host
+            }
+            return first ?: ""
+        }
+
+        /** Addresses, routes (AllowedIPs), DNS and MTU from the profile. */
+        private fun configure(builder: Builder, config: Config) {
+            val iface = config.`interface`
+            builder.setMtu(iface.mtu.orElse(1280))
+            iface.addresses.forEach { builder.addAddress(it.address, it.mask) }
+            iface.dnsServers.forEach { runCatching { builder.addDnsServer(it) }.onFailure { e -> VpnState.log("Bad DNS server $it: ${e.message}") } }
+            iface.dnsSearchDomains.forEach { builder.addSearchDomain(it) }
+            val routes = config.peers.flatMap { it.allowedIps }
+            routes.forEach { r ->
+                runCatching { builder.addRoute(TunConfig.networkAddress(r.address.hostAddress.orEmpty(), r.mask), r.mask) }
+                    .onFailure { VpnState.log("Could not add route $r: ${it.message}") }
+            }
+            // Same leak rule as OpenVPN (TunConfig): if all IPv4 goes through the tunnel and the
+            // profile has no IPv6, Android blocks IPv6 instead of letting it out unprotected.
+            val v4 = routes.filter { it.address is Inet4Address }
+            val redirectsAll4 = v4.any { it.mask == 0 } ||
+                (v4.any { it.mask == 1 && it.address.hostAddress == "0.0.0.0" } && v4.any { it.mask == 1 && it.address.hostAddress == "128.0.0.0" })
+            if (!redirectsAll4) {
+                if (iface.addresses.none { it.address is Inet4Address }) builder.allowFamily(OsConstants.AF_INET)
+                if (iface.addresses.none { it.address is Inet6Address } && routes.none { it.address is Inet6Address }) {
+                    builder.allowFamily(OsConstants.AF_INET6)
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
+            VpnState.log(
+                "Tunnel: ip ${iface.addresses.joinToString()}, mtu ${iface.mtu.orElse(1280)}, routes ${routes.joinToString()}" +
+                    if (iface.dnsServers.isEmpty()) "" else ", dns ${iface.dnsServers.joinToString { it.hostAddress.orEmpty() }}",
+            )
+        }
+
+        /** Reports Connected after the first handshake, and the traffic counters, until the tunnel goes. */
+        private fun watch(h: Int, config: Config, server: String) {
+            val started = System.currentTimeMillis()
+            var connected = false
+            var warned = false
+            val localIp = config.`interface`.addresses.firstOrNull { it.address is Inet4Address }?.address?.hostAddress
+            while (handle == h && !stopping) {
+                val stats = runCatching { WireGuardEngine.stats(h) }.getOrNull()
+                if (stats != null && current()) {
+                    VpnState.setTraffic(Traffic(stats.rxBytes, stats.txBytes))
+                    if (!connected && stats.lastHandshakeEpochSeconds > 0) {
+                        connected = true
+                        VpnState.log("WireGuard handshake with the server done")
+                        publish(TunnelState.Connected(profile.name, localIp, server.ifEmpty { null }, System.currentTimeMillis()))
+                    }
+                }
+                if (!connected && !warned && System.currentTimeMillis() - started > 30_000) {
+                    warned = true
+                    VpnState.log("No answer from the WireGuard server yet. Check the profile's keys and Endpoint; still trying.")
+                }
+                try {
+                    Thread.sleep(if (connected) 2000 else 1000)
+                } catch (e: InterruptedException) {
+                    return
+                }
+            }
+        }
+
+        override fun requestStop() {
+            synchronized(lock) {
+                val h = handle
+                handle = -1
+                if (h >= 0) runCatching { WireGuardEngine.turnOff(h) }.onFailure { VpnState.log("WireGuard stop failed: ${it.message}") }
+            }
+            watcher?.interrupt()
+        }
+
+        override fun isAlive() = handle >= 0
+
+        override fun kill() = requestStop()
+
+        override fun onNetworkChange() {
+            // wireguard-go roams to the new network by itself; nothing to restart.
+            VpnState.log("Network changed (WireGuard keeps going)")
         }
     }
 

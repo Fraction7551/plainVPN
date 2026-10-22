@@ -68,7 +68,7 @@ fun ProfilesScreen(onConnect: (String?) -> Unit, onPickFile: () -> Boolean) {
             ScreenTitle("Profiles")
             if (profiles.isEmpty()) {
                 Text(
-                    "No profiles yet. Import an .ovpn file using one of the options on the right.",
+                    "No profiles yet. Import an OpenVPN (.ovpn) or WireGuard (.conf) file using one of the options on the right.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -78,7 +78,7 @@ fun ProfilesScreen(onConnect: (String?) -> Unit, onPickFile: () -> Boolean) {
                     ListCell(
                         title = profile.name,
                         subtitle = buildString {
-                            append("${profile.serverLabel} · ${profile.protocol?.uppercase()}")
+                            append("${profile.serverLabel} · ${profile.engineLabel}")
                             if (profile.needsCredentials && !profile.hasCredentials) append(" · login required")
                         },
                         selected = profile.id == selectedId,
@@ -155,7 +155,7 @@ fun ProfilesScreen(onConnect: (String?) -> Unit, onPickFile: () -> Boolean) {
 private fun scanDropFolder(context: Context, folder: File?) {
     val files = folder?.listFiles { f -> f.isFile && (f.name.endsWith(".ovpn", true) || f.name.endsWith(".conf", true)) }.orEmpty()
     if (files.isEmpty()) {
-        Toast.makeText(context, "No .ovpn files found in the drop folder", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "No .ovpn or .conf files found in the drop folder", Toast.LENGTH_LONG).show()
         return
     }
     var imported = 0
@@ -190,7 +190,7 @@ private fun ProfileActionsDialog(
         title = { Text(profile.name) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Dimens.smallPadding), modifier = Modifier.width(380.dp)) {
-                Text("${profile.serverLabel} · ${profile.protocol?.uppercase()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${profile.serverLabel} · ${profile.engineLabel}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(Dimens.smallPadding))
                 PositiveButton("Connect", onConnect)
                 TvButton("Use as default", onSelect)
