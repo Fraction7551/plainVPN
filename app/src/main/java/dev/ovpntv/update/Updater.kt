@@ -57,7 +57,7 @@ sealed interface UpdateState {
  * on the server can't replace the app.
  */
 object Updater {
-    private const val MANIFEST_URL = "https://github.com/Fraction7551/testapptv/releases/latest/download/version.json"
+    private const val MANIFEST_URL = "https://github.com/Fraction7551/plainVPN/releases/latest/download/version.json"
     private const val PREFS = "updates"
     private const val KEY_LAST_CHECK = "last_check"
     private const val KEY_NOTIFIED_VERSION = "notified_version"

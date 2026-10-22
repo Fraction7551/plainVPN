@@ -24,9 +24,10 @@ plainVPN/
 
 ## Build
 
+The native sources sit next to this folder (see Layout). They are the unmodified upstream archives, also attached to every release as `source.zip`: unpack them to `../openvpn-src/openvpn-2.7.8` and `../deps/{mbedtls-3.6.7,lz4-1.10.0,lzo-2.10}`. Then, with JDK 17+ and the Android SDK and NDK r27 installed:
+
 ```powershell
-$env:JAVA_HOME = "<projects>\plainVPN\toolchain\jdk-21.0.12.1+1"
-cd <projects>\plainVPN\plainvpn
+$env:JAVA_HOME = "..\toolchain\jdk-21.0.12.1+1"   # or any JDK 17+
 .\gradlew.bat assembleRelease     # app\build\outputs\apk\release\app-release.apk
 ```
 

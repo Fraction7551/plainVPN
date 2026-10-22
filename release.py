@@ -22,7 +22,7 @@ import zipfile
 
 APP = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(APP)
-REPO = "Fraction7551/testapptv"
+REPO = "Fraction7551/plainVPN"
 ASSET = "app.apk"
 SOURCE_ASSET = "source.zip"
 GH = os.path.expanduser(r"~\.local\bin\gh.exe")
@@ -140,7 +140,7 @@ def ensure_repo_has_commit():
     probe = subprocess.run([GH, "api", f"repos/{REPO}/commits", "--jq", ".[0].sha"], capture_output=True, text=True)
     if probe.returncode == 0:
         return
-    content = base64.b64encode(b"# testapptv\n").decode()
+    content = base64.b64encode(b"# plainVPN\n").decode()
     run([GH, "api", "-X", "PUT", f"repos/{REPO}/contents/README.md", "-f", "message=Initial commit", "-f", f"content={content}"],
         capture_output=True)
 

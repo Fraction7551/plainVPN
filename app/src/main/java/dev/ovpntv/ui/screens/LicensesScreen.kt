@@ -37,8 +37,8 @@ import dev.ovpntv.ui.theme.Plain
 
 /**
  * Third-party notices. The texts live in assets/licenses, copied unchanged from the bundled
- * sources (openvpn-src, deps) and the Inter font. The GPL parts' complete source ships as
- * source.zip on each GitHub release.
+ * sources (openvpn-src, deps) and the Inter font. The app's source is the public repo, and the
+ * GPL parts' complete source ships as source.zip on each GitHub release.
  */
 private data class Component(val name: String, val license: String, val file: String)
 
@@ -51,7 +51,7 @@ private val COMPONENTS = listOf(
     Component("Kotlin, kotlinx.coroutines, AndroidX and Jetpack Compose", "Apache-2.0", "apache-2.0.txt"),
 )
 
-const val SOURCE_URL = "github.com/Fraction7551/testapptv/releases/latest"
+const val SOURCE_URL = "github.com/Fraction7551/plainVPN"
 
 @Composable
 fun LicensesScreen(onBack: () -> Unit) {
@@ -78,8 +78,8 @@ fun LicensesScreen(onBack: () -> Unit) {
         Column(Modifier.width(360.dp)) {
             ScreenTitle("Open-source licences")
             Text(
-                "plainVPN includes the components below. Source code for OpenVPN, Mbed TLS, LZO and LZ4 as built into " +
-                    "this app is in source.zip on each release at $SOURCE_URL.",
+                "plainVPN includes the components below. Its source code is at $SOURCE_URL, and the source for " +
+                    "OpenVPN, Mbed TLS, LZO and LZ4 as built into this app is in source.zip on each release there.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Plain.Muted,
                 modifier = Modifier.padding(bottom = Dimens.mediumPadding),
