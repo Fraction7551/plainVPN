@@ -12,6 +12,9 @@ import dev.ovpntv.vpn.VpnState
 /** Re-arms the schedule after boot, updates and clock changes; optionally connects on boot. */
 class SystemEventReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // The receiver is exported for these system broadcasts (only the system can send them);
+        // an explicit intent from another app with any other action is ignored.
+        if (intent.action !in HANDLED_ACTIONS) return
         ReconnectScheduler.reschedule(context)
 
         val wanted = when (intent.action) {
@@ -35,5 +38,9 @@ class SystemEventReceiver : BroadcastReceiver() {
 
     companion object {
         private val RESTORE_BLOCK_ACTIONS = setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED)
+        private val HANDLED_ACTIONS = RESTORE_BLOCK_ACTIONS + setOf(
+            Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED,
+            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED",
+        )
     }
 }
