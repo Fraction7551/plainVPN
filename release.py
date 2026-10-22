@@ -23,7 +23,7 @@ import zipfile
 APP = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(APP)
 REPO = "Fraction7551/plainVPN"
-ASSET = "app.apk"
+ASSET = "plainVPN.apk"
 SOURCE_ASSET = "source.zip"
 GH = os.path.expanduser(r"~\.local\bin\gh.exe")
 JAVA_HOME = os.path.join(ROOT, "toolchain", "jdk-21.0.12.1+1")
