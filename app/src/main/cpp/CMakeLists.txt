@@ -23,6 +23,10 @@ foreach(dir OPENVPN_DIR MBEDTLS_DIR LZ4_DIR LZO_DIR)
     endif()
 endforeach()
 
+# __FILE__ ends up in the binary (OpenVPN's and Mbed TLS's error messages); keep the
+# build machine's folders (user name included) out of the APK.
+add_compile_options("-ffile-prefix-map=${TEST_ROOT}/=" "-ffile-prefix-map=${CMAKE_CURRENT_SOURCE_DIR}/=")
+
 # ---- mbed TLS -------------------------------------------------------------
 set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)

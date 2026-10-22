@@ -90,12 +90,14 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
 
     private fun handle(socket: Socket) {
         socket.soTimeout = 15_000
+        // A whole request must arrive within this, so a slow sender can't hold a slot forever.
+        val deadline = System.currentTimeMillis() + REQUEST_DEADLINE_MS
         val input = BufferedInputStream(socket.getInputStream())
         val out = socket.getOutputStream()
-        val requestLine = readLine(input) ?: return
+        val requestLine = readLine(input, deadline) ?: return
         val headers = mutableMapOf<String, String>()
         while (true) {
-            val line = readLine(input) ?: return
+            val line = readLine(input, deadline) ?: return
             if (line.isEmpty()) break
             if (headers.size >= MAX_HEADERS) return
             val colon = line.indexOf(':')
@@ -104,6 +106,10 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
         val parts = requestLine.split(" ")
         val method = parts.getOrNull(0)
         val path = parts.getOrNull(1).orEmpty()
+
+        // The TV shows an IP address to open. A request for any other host name is a web page
+        // that re-pointed its own domain at the TV (DNS rebinding), so it is refused.
+        if (!isIpHost(headers["host"])) return respond(out, 403, "text/plain", "Open the address shown on the TV.")
 
         when {
             method == "GET" && (path == "/" || path.startsWith("/?")) -> respond(out, 200, "text/html; charset=utf-8", PAGE)
@@ -118,6 +124,7 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
                 val body = ByteArray(length)
                 var read = 0
                 while (read < length) {
+                    if (System.currentTimeMillis() > deadline) return
                     val n = input.read(body, read, length - read)
                     if (n < 0) break
                     read += n
@@ -136,9 +143,10 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
         }
     }
 
-    private fun readLine(input: InputStream): String? {
+    private fun readLine(input: InputStream, deadline: Long): String? {
         val buf = ByteArrayOutputStream()
         while (true) {
+            if (System.currentTimeMillis() > deadline) return null
             val b = input.read()
             if (b < 0) return if (buf.size() == 0) null else buf.toString("UTF-8")
             if (b == '\n'.code) return buf.toString("UTF-8").trimEnd('\r')
@@ -150,7 +158,10 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
     private fun respond(out: OutputStream, code: Int, type: String, body: String) {
         val bytes = body.toByteArray(Charsets.UTF_8)
         val status = mapOf(200 to "OK", 403 to "Forbidden", 404 to "Not Found", 413 to "Payload Too Large", 422 to "Unprocessable Entity")[code]
-        out.write("HTTP/1.1 $code $status\r\nContent-Type: $type\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray())
+        // No caching, no sniffing, no framing by another site.
+        val security = "Cache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\n" +
+            "Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'\r\n"
+        out.write("HTTP/1.1 $code $status\r\nContent-Type: $type\r\nContent-Length: ${bytes.size}\r\n${security}Connection: close\r\n\r\n".toByteArray())
         out.write(bytes)
         out.flush()
     }
@@ -161,6 +172,16 @@ class LanImportServer(private val onImported: (String) -> Unit, private val onEr
         private const val MAX_FAILED_PINS = 10
         private const val MAX_CLIENTS = 4
         private const val MAX_HEADERS = 64
+        private const val REQUEST_DEADLINE_MS = 30_000L
+
+        /** True for "192.168.1.50", "192.168.1.50:8080", "[fd00::1]:8080": an IP literal, not a name. */
+        fun isIpHost(host: String?): Boolean {
+            if (host.isNullOrEmpty()) return false
+            if (host.startsWith("[")) return host.substringBefore(']').drop(1).let { it.isNotEmpty() && it.all { c -> c.isLetterOrDigit() || c == ':' || c == '.' } }
+            val ip = host.substringBefore(':')
+            val parts = ip.split('.')
+            return parts.size == 4 && parts.all { p -> p.isNotEmpty() && p.length <= 3 && p.all { it in '0'..'9' } }
+        }
         private val TUNNEL_PREFIXES = listOf("tun", "ppp", "ipsec", "wg")
 
         /** Site-local IPv4 addresses of this device, for display. */

@@ -62,6 +62,9 @@ object Updater {
     private const val KEY_LAST_CHECK = "last_check"
     private const val KEY_NOTIFIED_VERSION = "notified_version"
     private const val NOTIFICATION_ID = 2
+    private const val MAX_MANIFEST_BYTES = 64 * 1024
+    /** The APK is about 4 MB; this only stops a runaway download from filling the TV's storage. */
+    private const val MAX_APK_BYTES = 200L * 1024 * 1024
     const val NOTIFICATION_CHANNEL_ID = "updates"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -144,14 +147,36 @@ object Updater {
     }
 
     private fun fetchManifest(): UpdateInfo {
-        val json = JSONObject(open(MANIFEST_URL).use { it.inputStream.bufferedReader().readText() })
+        val text = open(MANIFEST_URL).use { conn ->
+            conn.inputStream.use { input ->
+                val bytes = input.readNBytesCompat(MAX_MANIFEST_BYTES + 1)
+                if (bytes.size > MAX_MANIFEST_BYTES) error("version.json is too large")
+                String(bytes, Charsets.UTF_8)
+            }
+        }
+        val json = JSONObject(text)
+        val apkUrl = json.getString("apkUrl")
+        // Only ever download over HTTPS (the release file points at GitHub).
+        if (!apkUrl.startsWith("https://")) error("the update link isn't HTTPS")
         return UpdateInfo(
             versionCode = json.getInt("versionCode"),
-            versionName = json.getString("versionName"),
-            apkUrl = json.getString("apkUrl"),
+            versionName = json.getString("versionName").take(40),
+            apkUrl = apkUrl,
             sha256 = json.getString("sha256").lowercase(),
-            notes = json.optString("notes"),
+            notes = json.optString("notes").take(300),
         )
+    }
+
+    /** Reads at most [limit] bytes (InputStream.readNBytes needs Android 13). */
+    private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8 * 1024)
+        while (out.size() < limit) {
+            val n = read(buffer, 0, minOf(buffer.size, limit - out.size()))
+            if (n < 0) break
+            out.write(buffer, 0, n)
+        }
+        return out.toByteArray()
     }
 
     private fun download(context: Context, info: UpdateInfo): File {
@@ -170,6 +195,7 @@ object Updater {
                         output.write(buffer, 0, n)
                         digest.update(buffer, 0, n)
                         done += n
+                        if (done > MAX_APK_BYTES) error("The download is far larger than the app. Not installing it.")
                         if (total > 0) _state.value = UpdateState.Downloading(info, (done * 100 / total).toInt())
                     }
                 }

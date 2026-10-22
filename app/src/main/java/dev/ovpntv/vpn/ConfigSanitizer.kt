@@ -9,7 +9,7 @@ package dev.ovpntv.vpn
  * `--script-security 0` after `--config`, so a script that slips through still can't run.
  *
  * Lines are read exactly the way OpenVPN 2.7 reads a config file (options_parse.c):
- * quotes and backslashes in the directive name, a leading "--", inline <blocks> that
+ * quotes and backslashes in the directive name, a leading "--", "setenv opt" wrappers, inline <blocks> that
  * end at the first line starting with the close tag, and 256-byte line chunks. Anything
  * that would read differently there is dropped rather than guessed at.
  */
@@ -53,8 +53,6 @@ object ConfigSanitizer {
                     val directive = tokens[0]
                     when {
                         directive in dropped -> out.appendLine("# [plainVPN removed] ${printable(directive)}")
-                        directive == "setenv" && tokens.getOrNull(2) == "block-outside-dns" ->
-                            out.appendLine("# [plainVPN removed] setenv block-outside-dns")
                         directive == "auth-user-pass" && tokens.size > 1 -> {
                             out.appendLine("# [plainVPN: credentials come from the app]")
                             out.appendLine("auth-user-pass")
@@ -91,17 +89,31 @@ object ConfigSanitizer {
                 tokens == null -> yield(Line(raw, Kind.Rejected))
                 tokens.isEmpty() -> yield(Line(raw, Kind.Blank))
                 else -> {
-                    val first = tokens[0].let { if (it.length >= 3 && it.startsWith("--")) it.substring(2) else it }
+                    val first = stripDashes(tokens[0])
                     val parts = listOf(first) + tokens.drop(1)
                     if (parts.size == 1 && first.length >= 2 && first.startsWith('<') && first.endsWith('>')) {
                         closeTag = "</${first.substring(1, first.length - 1)}>"
                         yield(Line(raw, Kind.Inline))
                     } else {
-                        yield(Line(raw, Kind.Directive, parts))
+                        yield(Line(raw, Kind.Directive, unwrapSetenvOpt(parts)))
                     }
                 }
             }
         }
+    }
+
+    /** OpenVPN's bypass_doubledash(). */
+    private fun stripDashes(s: String) = if (s.length >= 3 && s.startsWith("--")) s.substring(2) else s
+
+    /**
+     * "setenv opt <option ...>" makes OpenVPN run <option> as if written alone (add_option),
+     * so the option it wraps is the one to judge. Unwrapped repeatedly and with any "--"
+     * stripped, which can only flag more lines than OpenVPN would run.
+     */
+    private fun unwrapSetenvOpt(tokens: List<String>): List<String> {
+        var t = tokens
+        while (t.size > 2 && t[0] == "setenv" && t[1] == "opt") t = listOf(stripDashes(t[2])) + t.drop(3)
+        return t
     }
 
     /** Port of OpenVPN's parse_line(): the line's tokens, or null when OpenVPN would reject it. */

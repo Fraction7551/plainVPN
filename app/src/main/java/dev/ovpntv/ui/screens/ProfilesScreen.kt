@@ -33,7 +33,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import dev.ovpntv.data.InvalidProfileException
 import dev.ovpntv.data.Profile
 import dev.ovpntv.data.ProfileRepository
 import dev.ovpntv.data.Settings
@@ -162,10 +161,11 @@ private fun scanDropFolder(context: Context, folder: File?) {
     var imported = 0
     files.forEach { f ->
         try {
-            ProfileRepository.import(f.name, f.readText())
+            // Before Android 11 any app with storage access can write here, so size-check first.
+            ProfileRepository.import(f.name, f.inputStream().use { ProfileRepository.readProfileText(it) })
             f.delete()
             imported++
-        } catch (e: InvalidProfileException) {
+        } catch (e: Exception) {
             VpnState.log("Skipped ${f.name}: ${e.message}")
         }
     }

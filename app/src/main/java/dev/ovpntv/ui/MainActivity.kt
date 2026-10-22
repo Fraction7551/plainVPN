@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
             val name = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
                 if (c.moveToFirst()) c.getString(0) else null
             } ?: "Profile"
-            val text = contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+            val text = contentResolver.openInputStream(uri)?.use { ProfileRepository.readProfileText(it) }
                 ?: throw InvalidProfileException("Could not read the file")
             val profile = ProfileRepository.import(name, text)
             Toast.makeText(this, "Imported \"${profile.name}\"", Toast.LENGTH_SHORT).show()

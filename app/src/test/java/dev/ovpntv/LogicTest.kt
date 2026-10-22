@@ -1,6 +1,9 @@
 package dev.ovpntv
 
 import dev.ovpntv.data.ConfigInfo
+import dev.ovpntv.data.InvalidProfileException
+import dev.ovpntv.data.ProfileRepository
+import dev.ovpntv.importer.LanImportServer
 import dev.ovpntv.data.ReconnectSchedule
 import dev.ovpntv.schedule.ReconnectScheduler
 import dev.ovpntv.vpn.ConfigSanitizer
@@ -118,6 +121,36 @@ class LogicTest {
         assertEquals(listOf("remote"), live)
         // OpenVPN skips a UTF-8 byte-order mark before the first directive.
         assertEquals(listOf("remote"), liveDirectives(0xFEFF.toChar() + "up /system/bin/sh\nremote x 1194\n"))
+    }
+
+    @Test
+    fun sanitizerUnwrapsSetenvOpt() {
+        // OpenVPN runs "setenv opt X ..." as X, so X is what gets judged.
+        val input = "remote x 1194\nsetenv opt log /data/data/dev.ovpntv/shared_prefs/settings.xml\n" +
+            "setenv opt plugin /x.so\n\"setenv\" opt \"--config\" /sdcard/a.ovpn\nsetenv opt block-outside-dns\n" +
+            "setenv opt auth-user-pass /creds\nsetenv FOO bar\n"
+        val out = ConfigSanitizer.sanitize(input)
+        assertEquals(listOf("remote", "auth-user-pass", "setenv"), liveDirectives(input))
+        assertTrue(out.lines().any { it == "auth-user-pass" })
+        assertFalse(out.contains("/creds"))
+    }
+
+    @Test
+    fun lanImportOnlyAcceptsIpHosts() {
+        assertTrue(LanImportServer.isIpHost("192.168.1.50:8080"))
+        assertTrue(LanImportServer.isIpHost("10.0.0.5"))
+        assertTrue(LanImportServer.isIpHost("[fd00::1]:8080"))
+        assertFalse(LanImportServer.isIpHost("evil.example.com:8080"))
+        assertFalse(LanImportServer.isIpHost("192.168.1.50.nip.io"))
+        assertFalse(LanImportServer.isIpHost(null))
+        assertFalse(LanImportServer.isIpHost(""))
+    }
+
+    @Test
+    fun importedFilesAreSizeLimited() {
+        assertEquals("abc", ProfileRepository.readProfileText("abc".byteInputStream()))
+        val big = ByteArray(ProfileRepository.MAX_PROFILE_BYTES + 1) { 'a'.code.toByte() }
+        assertTrue(runCatching { ProfileRepository.readProfileText(big.inputStream()) }.exceptionOrNull() is InvalidProfileException)
     }
 
     @Test

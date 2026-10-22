@@ -6,7 +6,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import java.util.UUID
 
 data class Profile(
@@ -41,6 +43,22 @@ object ProfileRepository {
     }
 
     fun get(id: String?): Profile? = _profiles.value.firstOrNull { it.id == id }
+
+    /** Profiles are text files of a few KB; anything over 1 MB is refused before it fills memory. */
+    const val MAX_PROFILE_BYTES = 1024 * 1024
+
+    /** Reads an imported file, refusing one larger than [MAX_PROFILE_BYTES]. */
+    fun readProfileText(input: InputStream): String {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(16 * 1024)
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            out.write(buffer, 0, n)
+            if (out.size() > MAX_PROFILE_BYTES) throw InvalidProfileException("The file is larger than 1 MB, so it is not a VPN profile.")
+        }
+        return out.toString("UTF-8")
+    }
 
     fun configFile(profile: Profile) = File(File(root, profile.id), CONFIG_NAME)
 
