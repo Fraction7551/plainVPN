@@ -22,6 +22,10 @@ import java.util.Date
 object ReconnectScheduler {
     private const val REQUEST_CYCLE = 100
     private const val REQUEST_RESUME = 101
+    private const val REQUEST_RESTORE = 102
+    private const val CRASH_RESTORE_DELAY_MS = 3_000L
+    private const val CRASH_RESTORE_WINDOW_MS = 10 * 60_000L
+    private const val CRASH_RESTORE_MAX = 3
 
     /** Re-arms (or cancels) the next cycle alarm from the saved schedule. */
     fun reschedule(context: Context) {
@@ -42,6 +46,31 @@ object ReconnectScheduler {
 
     fun cancelResume(context: Context) {
         context.getSystemService(AlarmManager::class.java).cancel(resumePendingIntent(context))
+    }
+
+    /**
+     * Android doesn't restart the sticky VPN service after an uncaught exception, so the
+     * tunnel would stay down (and VPN apps go direct) until plainVPN is opened again. On a
+     * crash while the tunnel is wanted, an alarm brings it back a few seconds later; a crash
+     * loop gives up after [CRASH_RESTORE_MAX] restores in [CRASH_RESTORE_WINDOW_MS].
+     * Native crashes (e.g. in wireguard-go) never reach this handler.
+     */
+    fun installCrashRestore(context: Context) {
+        val app = context.applicationContext
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            try {
+                val now = System.currentTimeMillis()
+                if ((Settings.wantConnected || Settings.keptBlockedError != null) &&
+                    Settings.allowCrashRestore(now, CRASH_RESTORE_WINDOW_MS, CRASH_RESTORE_MAX)
+                ) {
+                    setAlarm(app, now + CRASH_RESTORE_DELAY_MS, restorePendingIntent(app))
+                }
+            } catch (_: Throwable) {
+                // Never let the handler hide the original crash.
+            }
+            previous?.uncaughtException(thread, error)
+        }
     }
 
     /** Next time at or after [now] matching the schedule's time and days, or null if no day is selected. */
@@ -92,6 +121,12 @@ object ReconnectScheduler {
     private fun resumePendingIntent(context: Context) = PendingIntent.getBroadcast(
         context, REQUEST_RESUME,
         Intent(context, ScheduleReceiver::class.java).setAction(ScheduleReceiver.ACTION_RESUME),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private fun restorePendingIntent(context: Context) = PendingIntent.getBroadcast(
+        context, REQUEST_RESTORE,
+        Intent(context, ScheduleReceiver::class.java).setAction(ScheduleReceiver.ACTION_RESTORE),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 }

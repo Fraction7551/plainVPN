@@ -74,6 +74,22 @@ object Settings {
             .putString(KEY_KEPT_BLOCKED_ERROR, value.orEmpty())
             .apply()
 
+    /**
+     * Counts an automatic VPN restore after an app crash. Returns false once [max] restores
+     * happened within [windowMs], so a crash loop gives up. Written synchronously because the
+     * process is about to die.
+     */
+    fun allowCrashRestore(now: Long, windowMs: Long, max: Int): Boolean {
+        val start = prefs.getLong(KEY_CRASH_WINDOW_START, 0)
+        val count = if (now - start in 0 until windowMs) prefs.getInt(KEY_CRASH_COUNT, 0) else 0
+        if (count >= max) return false
+        prefs.edit()
+            .putLong(KEY_CRASH_WINDOW_START, if (count == 0) now else start)
+            .putInt(KEY_CRASH_COUNT, count + 1)
+            .commit()
+        return true
+    }
+
     fun init(context: Context) {
         prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _schedule.value = ReconnectSchedule(
@@ -143,4 +159,6 @@ object Settings {
     private const val KEY_KEPT_BLOCKED_ERROR = "kept_blocked_error"
     private const val KEY_SPLIT_MODE = "split_mode"
     private const val KEY_SPLIT_APPS = "split_apps"
+    private const val KEY_CRASH_WINDOW_START = "crash_restore_window_start"
+    private const val KEY_CRASH_COUNT = "crash_restore_count"
 }

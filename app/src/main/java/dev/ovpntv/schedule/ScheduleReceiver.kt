@@ -30,11 +30,16 @@ class ScheduleReceiver : BroadcastReceiver() {
             ACTION_RESUME -> if (Settings.wantConnected) {
                 OpenVpnService.start(context, Intent(context, OpenVpnService::class.java).setAction(OpenVpnService.ACTION_RESUME))
             }
+            // Set by the crash handler (ReconnectScheduler.installCrashRestore).
+            ACTION_RESTORE -> if (Settings.wantConnected || Settings.keptBlockedError != null) {
+                OpenVpnService.start(context, Intent(context, OpenVpnService::class.java).setAction(OpenVpnService.ACTION_RESTORE))
+            }
         }
     }
 
     companion object {
         const val ACTION_CYCLE = "dev.ovpntv.schedule.CYCLE"
         const val ACTION_RESUME = "dev.ovpntv.schedule.RESUME"
+        const val ACTION_RESTORE = "dev.ovpntv.schedule.RESTORE"
     }
 }

@@ -14,6 +14,7 @@ class OvpnTvApp : Application() {
         super.onCreate()
         Settings.init(this)
         ProfileRepository.init(this)
+        ReconnectScheduler.installCrashRestore(this)
         createNotificationChannel()
         ReconnectScheduler.reschedule(this)
     }

@@ -69,8 +69,11 @@ class OpenVpnService : VpnService() {
             ACTION_SCHEDULED_CYCLE -> scheduledCycle()
             ACTION_RESUME -> resumeAfterPause()
             ACTION_RESTORE_BLOCK -> restoreBlock()
-            // Sticky restart after the app process died: only come back if the tunnel was wanted.
-            null -> if (Settings.wantConnected) {
+            // Sticky restart after the app process died, or the crash-restore alarm: only come
+            // back if the tunnel was wanted, and only once if both paths fire.
+            null, ACTION_RESTORE -> if (session != null || blockTun != null) {
+                VpnState.log("VPN already restored")
+            } else if (Settings.wantConnected) {
                 VpnState.log("App was restarted by the system, restoring the VPN")
                 connect(null)
             } else if (Settings.keptBlockedError != null) {
@@ -914,6 +917,7 @@ class OpenVpnService : VpnService() {
         const val ACTION_SCHEDULED_CYCLE = "dev.ovpntv.SCHEDULED_CYCLE"
         const val ACTION_RESUME = "dev.ovpntv.RESUME"
         const val ACTION_RESTORE_BLOCK = "dev.ovpntv.RESTORE_BLOCK"
+        const val ACTION_RESTORE = "dev.ovpntv.RESTORE"
         const val EXTRA_PROFILE_ID = "profile_id"
         private const val NOTIFICATION_ID = 1
         /** Waits between automatic restarts; the last one repeats until the tunnel is back. */

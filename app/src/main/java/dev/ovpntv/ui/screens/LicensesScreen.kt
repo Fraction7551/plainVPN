@@ -48,11 +48,11 @@ private val COMPONENTS = listOf(
     Component("Mbed TLS 3.6.7", "Used under GPL-2.0-or-later (dual-licensed)", "mbedtls.txt"),
     Component("LZO 2.10", "GPL-2.0-or-later", "lzo.txt"),
     Component("LZ4 1.10.0 library", "BSD-2-Clause", "lz4.txt"),
-    Component("WireGuard® tunnel library 1.0.20260102", "Apache-2.0", "apache-2.0.txt"),
+    Component("WireGuard® tunnel library", "Apache-2.0 · version 1.0.20260102", "apache-2.0.txt"),
     Component("wireguard-go", "MIT · © WireGuard LLC", "wireguard-go.txt"),
     Component("Go runtime and x/ libraries", "BSD-3-Clause", "go.txt"),
     Component("Inter typeface", "SIL Open Font License 1.1", "inter-OFL.txt"),
-    Component("Kotlin, kotlinx.coroutines, AndroidX and Jetpack Compose", "Apache-2.0", "apache-2.0.txt"),
+    Component("Kotlin and AndroidX libraries", "Apache-2.0 · incl. Jetpack Compose, kotlinx.coroutines", "apache-2.0.txt"),
 )
 
 const val SOURCE_URL = "github.com/Fraction7551/plainVPN"
