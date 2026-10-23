@@ -234,6 +234,15 @@ class LogicTest {
     }
 
     @Test
+    fun wireGuardDroppedLinesNeverShowKeyMaterial() {
+        // "=" missing after the name, but the base64 key's own padding "=" is there.
+        val broken = "[Interface]\nPrivateKey yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=\n[Secret yAnz5TF+]\n"
+        val dropped = WireGuardProfile.clean(broken).dropped
+        assertTrue(dropped.isNotEmpty())
+        assertTrue(dropped.none { it.contains("yAnz", ignoreCase = true) })
+    }
+
+    @Test
     fun wireGuardParseUsesTheLibraryParser() {
         val config = WireGuardProfile.parse(wgConfig)
         assertEquals(1, config.peers.size)

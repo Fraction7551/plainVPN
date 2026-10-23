@@ -40,7 +40,7 @@ object WireGuardProfile {
                 line.startsWith("[") && line.endsWith("]") -> {
                     section = line.substring(1, line.length - 1).trim().lowercase()
                     if (section == "interface" || section == "peer") out.appendLine(raw)
-                    else dropped += "[$section] section"
+                    else dropped += safeName(section).let { if (it == UNREADABLE) it else "[$it] section" }
                 }
                 else -> {
                     val key = line.substringBefore('=').trim().replace(" ", "").lowercase()
@@ -50,12 +50,20 @@ object WireGuardProfile {
                         else -> emptySet()
                     }
                     if (line.contains('=') && key in allowed) out.appendLine(raw)
-                    else if (section == "interface" || section == "peer") dropped += line.substringBefore('=').trim().take(40)
+                    else if (section == "interface" || section == "peer") dropped += safeName(line.substringBefore('=').trim())
                 }
             }
         }
         return Cleaned(out.toString(), dropped.distinct())
     }
+
+    private const val UNREADABLE = "a line that isn't \"Key = value\""
+
+    /**
+     * Dropped names end up in the log, so only plain key names are shown. A broken line such as
+     * "PrivateKey <key>" with its "=" missing would otherwise put part of the private key there.
+     */
+    private fun safeName(name: String) = if (name.matches(Regex("[A-Za-z]{1,30}"))) name else UNREADABLE
 
     /** Parses [text] (cleaned first) with the tunnel library's own parser, exactly as the engine will see it. */
     fun parse(text: String): Config {
