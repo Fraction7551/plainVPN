@@ -16,6 +16,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +41,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusTarget
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Color
@@ -62,6 +65,13 @@ import dev.ovpntv.ui.components.PlainVpnLogo
 import dev.ovpntv.ui.components.plainIcon
 import androidx.compose.foundation.shape.RoundedCornerShape
 import dev.ovpntv.ui.theme.Plain
+
+/**
+ * Call just before a screen swaps out the focused item (a link to another screen, Back,
+ * the licences page). Focus waits on an invisible holder instead of dropping to the drawer,
+ * which would flash it open, and the next screen then takes it from the holder.
+ */
+val LocalHoldFocus = staticCompositionLocalOf<() -> Unit> { {} }
 
 /** Width of the collapsed drawer rail (56dp items + 12dp padding each side). */
 val RailWidth = 80.dp
@@ -103,9 +113,19 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
         }
     }
 
-    // For links inside a screen (Home's profile card and schedule chip) and Back: the focused
-    // item leaves with the old screen, and focus would otherwise fall back to the drawer and open it.
+    // Focusable only while it holds focus during a swap, so the D-pad never lands on it.
+    val holder = remember { FocusRequester() }
+    var holding by remember { mutableStateOf(false) }
+    val holdFocus: () -> Unit = remember {
+        {
+            holding = true
+            runCatching { holder.requestFocus() }
+        }
+    }
+
+    // For links inside a screen (Home's profile card and schedule chip) and Back.
     fun open(d: Destination) {
+        holdFocus()
         destination = d
         focusContentRequest++
     }
@@ -139,35 +159,45 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
             }
         },
     ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                // Home's ground artwork runs to the right and bottom edges, so it pads itself. Its
-                // left edge still stops at the rail: if this box overlapped the drawer, D-pad right
-                // from the drawer wouldn't count it as being to the right and focus couldn't return.
-                .padding(
-                    start = if (destination == Destination.Home) RailWidth else ContentStart,
-                    end = if (destination == Destination.Home) 0.dp else Dimens.screenHorizontal,
-                    top = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
-                    bottom = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
+        CompositionLocalProvider(LocalHoldFocus provides holdFocus) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                Box(
+                    Modifier
+                        .focusRequester(holder)
+                        .focusProperties { canFocus = holding }
+                        .onFocusChanged { if (!it.isFocused) holding = false }
+                        .focusTarget(),
                 )
-                .onFocusChanged { contentHasFocus = it.hasFocus }
-                .focusRequester(contentFocus)
-                .focusGroup(),
-        ) {
-            when (destination) {
-                Destination.Home -> HomeScreen(
-                    onConnect = onConnect,
-                    onDisconnect = onDisconnect,
-                    onOpenProfiles = { open(Destination.Profiles) },
-                    onOpenSchedule = { open(Destination.Schedule) },
-                )
-                Destination.Profiles -> ProfilesScreen(onConnect = onConnect, onPickFile = onPickFile)
-                Destination.Schedule -> ScheduleScreen()
-                Destination.SplitTunnel -> SplitTunnelScreen(onConnect = onConnect)
-                Destination.Settings -> SettingsScreen()
-                Destination.Logs -> LogsScreen()
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        // Home's ground artwork runs to the right and bottom edges, so it pads itself. Its
+                        // left edge still stops at the rail: if this box overlapped the drawer, D-pad right
+                        // from the drawer wouldn't count it as being to the right and focus couldn't return.
+                        .padding(
+                            start = if (destination == Destination.Home) RailWidth else ContentStart,
+                            end = if (destination == Destination.Home) 0.dp else Dimens.screenHorizontal,
+                            top = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
+                            bottom = if (destination == Destination.Home) 0.dp else Dimens.screenVertical,
+                        )
+                        .onFocusChanged { contentHasFocus = it.hasFocus }
+                        .focusRequester(contentFocus)
+                        .focusGroup(),
+                ) {
+                    when (destination) {
+                        Destination.Home -> HomeScreen(
+                            onConnect = onConnect,
+                            onDisconnect = onDisconnect,
+                            onOpenProfiles = { open(Destination.Profiles) },
+                            onOpenSchedule = { open(Destination.Schedule) },
+                        )
+                        Destination.Profiles -> ProfilesScreen(onConnect = onConnect, onPickFile = onPickFile)
+                        Destination.Schedule -> ScheduleScreen()
+                        Destination.SplitTunnel -> SplitTunnelScreen(onConnect = onConnect)
+                        Destination.Settings -> SettingsScreen()
+                        Destination.Logs -> LogsScreen()
+                    }
+                }
             }
         }
     }

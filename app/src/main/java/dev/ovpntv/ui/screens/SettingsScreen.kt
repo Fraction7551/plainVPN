@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.ovpntv.BuildConfig
 import dev.ovpntv.data.Settings
+import dev.ovpntv.ui.LocalHoldFocus
 import dev.ovpntv.ui.components.ListCell
 import dev.ovpntv.ui.components.ScreenTitle
 import dev.ovpntv.ui.components.SectionHeader
@@ -44,11 +45,12 @@ fun SettingsScreen() {
     val blockWhileReconnecting by Settings.blockWhileReconnecting.collectAsState()
     val update by Updater.state.collectAsState()
     var showLicenses by rememberSaveable { mutableStateOf(false) }
-    // Back from the licences returns focus to their button; otherwise it would fall to the drawer.
+    // Back from the licences returns focus to their button (held meanwhile, see LocalHoldFocus).
     var returnFromLicenses by remember { mutableStateOf(false) }
     val licensesButton = remember { FocusRequester() }
+    val holdFocus = LocalHoldFocus.current
     if (showLicenses) {
-        LicensesScreen(onBack = { showLicenses = false; returnFromLicenses = true })
+        LicensesScreen(onBack = { holdFocus(); showLicenses = false; returnFromLicenses = true })
         return
     }
     LaunchedEffect(returnFromLicenses) {
@@ -125,7 +127,7 @@ fun SettingsScreen() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(Dimens.smallPadding))
-            TvButton("Open-source licences", { showLicenses = true }, Modifier.focusRequester(licensesButton), icon = plainIcon(R.drawable.pi_info))
+            TvButton("Open-source licences", { holdFocus(); showLicenses = true }, Modifier.focusRequester(licensesButton), icon = plainIcon(R.drawable.pi_info))
         }
     }
 }
