@@ -103,7 +103,14 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
         }
     }
 
-    BackHandler(enabled = destination != Destination.Home) { destination = Destination.Home }
+    // For links inside a screen (Home's profile card and schedule chip) and Back: the focused
+    // item leaves with the old screen, and focus would otherwise fall back to the drawer and open it.
+    fun open(d: Destination) {
+        destination = d
+        focusContentRequest++
+    }
+
+    BackHandler(enabled = destination != Destination.Home) { open(Destination.Home) }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -153,8 +160,8 @@ fun AppRoot(onConnect: (String?) -> Unit, onDisconnect: () -> Unit, onPickFile: 
                 Destination.Home -> HomeScreen(
                     onConnect = onConnect,
                     onDisconnect = onDisconnect,
-                    onOpenProfiles = { destination = Destination.Profiles },
-                    onOpenSchedule = { destination = Destination.Schedule },
+                    onOpenProfiles = { open(Destination.Profiles) },
+                    onOpenSchedule = { open(Destination.Schedule) },
                 )
                 Destination.Profiles -> ProfilesScreen(onConnect = onConnect, onPickFile = onPickFile)
                 Destination.Schedule -> ScheduleScreen()

@@ -13,6 +13,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import dev.ovpntv.ui.components.plainIcon
 import dev.ovpntv.ui.components.TvButton
 import dev.ovpntv.R
@@ -40,9 +44,16 @@ fun SettingsScreen() {
     val blockWhileReconnecting by Settings.blockWhileReconnecting.collectAsState()
     val update by Updater.state.collectAsState()
     var showLicenses by rememberSaveable { mutableStateOf(false) }
+    // Back from the licences returns focus to their button; otherwise it would fall to the drawer.
+    var returnFromLicenses by remember { mutableStateOf(false) }
+    val licensesButton = remember { FocusRequester() }
     if (showLicenses) {
-        LicensesScreen(onBack = { showLicenses = false })
+        LicensesScreen(onBack = { showLicenses = false; returnFromLicenses = true })
         return
+    }
+    LaunchedEffect(returnFromLicenses) {
+        if (returnFromLicenses) runCatching { licensesButton.requestFocus() }
+        returnFromLicenses = false
     }
 
     Row(Modifier.fillMaxHeight()) {
@@ -114,7 +125,7 @@ fun SettingsScreen() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(Dimens.smallPadding))
-            TvButton("Open-source licences", { showLicenses = true }, icon = plainIcon(R.drawable.pi_info))
+            TvButton("Open-source licences", { showLicenses = true }, Modifier.focusRequester(licensesButton), icon = plainIcon(R.drawable.pi_info))
         }
     }
 }

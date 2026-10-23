@@ -6,8 +6,8 @@ import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,13 +16,23 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
+import kotlin.math.roundToInt
 import dev.ovpntv.R
 import dev.ovpntv.vpn.TunnelState
 
@@ -45,6 +55,21 @@ private val MoonRadius = 15.dp
 private val HaloRadius = 70.dp
 /** Below the straight shoreline under the right-hand pines (y 180 of 220 in pv_ground). */
 private const val REFLECTION_TOP = 180f / 220f
+
+/**
+ * pv_ground drawn once per size and kept for the whole app. Drawing the vector again each
+ * time Home opened took about a fifth of that frame on a TV box and made the switch stutter.
+ */
+private var groundCache: Pair<IntSize, ImageBitmap>? = null
+
+private fun groundBitmap(density: Density, size: Size, draw: DrawScope.() -> Unit): ImageBitmap {
+    val key = IntSize(size.width.roundToInt().coerceAtLeast(1), size.height.roundToInt().coerceAtLeast(1))
+    groundCache?.let { (cachedSize, bitmap) -> if (cachedSize == key) return bitmap }
+    val bitmap = ImageBitmap(key.width, key.height)
+    CanvasDrawScope().draw(density, LayoutDirection.Ltr, Canvas(bitmap), key.toSize(), draw)
+    groundCache = key to bitmap
+    return bitmap
+}
 
 @Composable
 fun NightScene(state: TunnelState, modifier: Modifier = Modifier, moonAt: Float = 0.87f) {
@@ -84,11 +109,12 @@ fun NightScene(state: TunnelState, modifier: Modifier = Modifier, moonAt: Float 
             )
             drawCircle(Color(0xFFEFF4FF).copy(alpha = 0.35f + 0.65f * p), MoonRadius.toPx(), Offset(x, y))
         }
-        Image(
-            painterResource(R.drawable.pv_ground),
-            contentDescription = null,
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.fillMaxWidth().height(GroundHeight).align(Alignment.BottomCenter),
+        val ground = rememberVectorPainter(plainIcon(R.drawable.pv_ground))
+        Spacer(
+            Modifier.fillMaxWidth().height(GroundHeight).align(Alignment.BottomCenter).drawWithCache {
+                val bitmap = groundBitmap(this, size) { with(ground) { draw(size) } }
+                onDrawBehind { drawImage(bitmap) }
+            },
         )
         // The moon's reflection: short strokes on the lake, narrowing and fading downward.
         Canvas(Modifier.fillMaxSize()) {

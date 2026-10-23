@@ -198,8 +198,8 @@ class LogicTest {
     private val wgConfig = """
         [Interface]
         PrivateKey = yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=
-        Address = 10.2.0.2/32, fd00::2/128
-        DNS = 10.2.0.1
+        Address = 10.0.0.2/32, fd00::2/128
+        DNS = 10.0.0.1
         PostUp = iptables -A FORWARD -i wg0 -j ACCEPT
         Table = off
 

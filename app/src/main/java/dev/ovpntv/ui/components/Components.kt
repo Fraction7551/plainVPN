@@ -53,9 +53,13 @@ import dev.ovpntv.R
 import dev.ovpntv.ui.theme.Dimens
 import dev.ovpntv.ui.theme.Plain
 
+/** Parsed icons, kept for the whole app: vectorResource re-parses the XML each time a screen opens. */
+private val iconCache = HashMap<Int, ImageVector>()
+
 /** A UI icon (res/drawable/pi_*.xml: 24dp, 1.8 stroke; see design-tools). */
 @Composable
-fun plainIcon(@DrawableRes id: Int): ImageVector = ImageVector.vectorResource(id)
+fun plainIcon(@DrawableRes id: Int): ImageVector =
+    iconCache[id] ?: ImageVector.vectorResource(id).also { iconCache[id] = it }
 
 /**
  * TV focus indicator: a 3dp white ring just inside the control and a 3dp

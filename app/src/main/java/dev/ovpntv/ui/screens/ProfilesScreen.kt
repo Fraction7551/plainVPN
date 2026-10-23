@@ -26,6 +26,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -61,7 +62,10 @@ fun ProfilesScreen(onConnect: (String?) -> Unit, onPickFile: () -> Boolean) {
     var credentialsFor by remember { mutableStateOf<Profile?>(null) }
     var renaming by remember { mutableStateOf<Profile?>(null) }
     var showLanImport by remember { mutableStateOf(false) }
-    val dropFolder = remember { context.getExternalFilesDir(null) }
+    // getExternalFilesDir asks the storage service and can block for a frame or more.
+    val dropFolder by produceState<File?>(null) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { context.getExternalFilesDir(null) }
+    }
 
     Row(Modifier.fillMaxHeight()) {
         Column(Modifier.weight(1.4f)) {
@@ -109,7 +113,7 @@ fun ProfilesScreen(onConnect: (String?) -> Unit, onPickFile: () -> Boolean) {
             }, icon = Icons.Rounded.FolderOpen)
             TvButton("Scan drop folder", { scanDropFolder(context, dropFolder) }, icon = plainIcon(R.drawable.pi_refresh))
             Text(
-                "Drop folder (for adb push or file managers):\n${dropFolder?.absolutePath ?: "unavailable"}",
+                "Drop folder (for adb push or file managers):\n${dropFolder?.absolutePath.orEmpty()}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
