@@ -15,6 +15,8 @@
 <p align="center">
   <a href="https://github.com/Fraction7551/plainVPN/releases/latest/download/plainVPN.apk"><b>⬇ Download plainVPN.apk</b></a>
   &nbsp;·&nbsp;
+  Downloader code <b>6988168</b>
+  &nbsp;·&nbsp;
   <a href="https://github.com/Fraction7551/plainVPN/releases/latest">Release notes</a>
 </p>
 
@@ -41,7 +43,9 @@ I made plainVPN to solve a niche problem of my own: a TV box that should use a V
 
 ### 1. Install the app
 
-On your TV, open the **[download link](https://github.com/Fraction7551/plainVPN/releases/latest/download/plainVPN.apk)** with a downloader or browser app (for example *Downloader*), then allow installing from that app when Android asks.
+On your TV, open the *Downloader* app and enter the code **6988168**. It always fetches the latest version. Allow installing from Downloader when Android asks.
+
+No Downloader? Open the **[download link](https://github.com/Fraction7551/plainVPN/releases/latest/download/plainVPN.apk)** in any browser app on the TV instead.
 
 Prefer a computer? With network debugging turned on in the TV's developer options:
 
